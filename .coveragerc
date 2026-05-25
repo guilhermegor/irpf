@@ -3,6 +3,8 @@ source = src/
 omit =
     src/chassis/*
     src/capabilities/example_feature/*
+    src/capabilities/*/infrastructure/*
+    src/capabilities/*/domain/enums.py
     src/app/*
     src/config/*
     src/main.py
