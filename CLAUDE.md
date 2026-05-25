@@ -97,4 +97,14 @@ Output files (exports, backups, model artifacts, reports): `name-like-this_YYYYM
 - **Ruff**: linter + formatter. Line-length 99, tab indent, double quotes, NumPy docstrings. Config: `ruff.toml`.
 - **Pre-commit**: ruff, pydocstyle (DAR/D412/D417), codespell, commitizen, gitlint, hadolint, unit + integration tests, coverage badge.
 - **Tests**: `unittest` discovered with `python -m unittest discover -s tests/unit -p "*.py"`.
-- **Makefile**: `init`, `venv`, `update_venv`, `precommit`, testing, linting, `start`.
+- **Makefile**: `init`, `venv`, `update_venv`, `precommit`, testing, linting, `run`, `db-setup-schema`, `db-backup`, `db-restore`.
+
+## Makefile ↔ tasks.sh sync rule
+
+`Makefile` and `tasks.sh` are parallel interfaces to the same commands — one for `make`, the other for environments without it. **Every time you add, rename, or remove a Makefile target you must make the identical change in `tasks.sh`:**
+
+1. Add/rename/remove the corresponding shell function.
+2. Add/rename/remove the `case` branch in the `MAIN` section.
+3. Add/rename/remove the entry in `show_help`.
+
+The same applies in reverse: changes to `tasks.sh` must be mirrored in the Makefile. The two files must always expose the same set of commands.

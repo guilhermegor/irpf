@@ -15,7 +15,12 @@ from src.capabilities.declaration_rv.domain.entities import (
 
 _MOCK_CFG = {
     "decimal_places": 2,
-    "contributor": {"full_name": "Test User", "cpf": "000.000.000-00"},
+    "contributor": {
+        "full_name": "Test User",
+        "full_name_key": "Nome Completo Contribuinte: ",
+        "cpf": "000.000.000-00",
+        "cpf_key": "CPF Contribuinte: ",
+    },
     "assets_and_rights": {
         "group": {"key": "Group: ", "value": "03"},
         "code": {"key": "Code: ", "value": "01"},

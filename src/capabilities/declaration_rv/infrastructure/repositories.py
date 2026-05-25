@@ -143,7 +143,7 @@ class PostgresDeclarationRepository:
             list_positions.append(
                 PortfolioPosition(
                     str_ticker=str_ticker,
-                    str_cnpj=str(row[str_col_cnpj]),
+                    str_cnpj=_clean_cnpj(str(row[str_col_cnpj])),
                     str_company_name=str(row[str_col_company]),
                     int_quantity=int(row[str_col_qty]),
                     decimal_avg_buy_price=Decimal(str(row[str_col_avg])),
@@ -161,13 +161,15 @@ class PostgresDeclarationRepository:
             str_ticker : str
                 Ticker to look up.
             """
+            if df_.empty or str_col_ticker not in df_.columns:
+                return None
             df_row = df_[df_[str_col_ticker] == str_ticker]
             if df_row.empty:
                 return None
             row = df_row.iloc[0]
             return TaxEvent(
                 str_ticker=str_ticker,
-                str_cnpj=str(row[str_col_cnpj]),
+                str_cnpj=_clean_cnpj(str(row[str_col_cnpj])),
                 str_company_name=str(row[str_col_company]),
                 str_event_type=str(row.get(str_col_mov, "")),
                 decimal_amount=Decimal(str(row[str_col_op])),
@@ -181,12 +183,12 @@ class PostgresDeclarationRepository:
 
         decimal_lending = (
             Decimal(str(df_lending[str_col_op].iloc[0]))
-            if not df_lending.empty
+            if not df_lending.empty and pd.notna(df_lending[str_col_op].iloc[0])
             else Decimal("0")
         )
         decimal_reimbursement = (
             Decimal(str(df_reimbursement[str_col_op].iloc[0]))
-            if not df_reimbursement.empty
+            if not df_reimbursement.empty and pd.notna(df_reimbursement[str_col_op].iloc[0])
             else Decimal("0")
         )
 
@@ -201,3 +203,19 @@ class PostgresDeclarationRepository:
             list_fraction_auction=list_fraction,
             list_bonus_shares=list_bonus,
         )
+
+
+def _clean_cnpj(str_cnpj: str) -> str:
+    """Strip trailing '.0' from CNPJ strings produced by Excel float parsing.
+
+    Parameters
+    ----------
+    str_cnpj : str
+        Raw CNPJ string, possibly with a trailing '.0' from float coercion.
+
+    Returns
+    -------
+    str
+        CNPJ string with any trailing '.0' removed.
+    """
+    return str_cnpj[:-2] if str_cnpj.endswith(".0") else str_cnpj

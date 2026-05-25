@@ -6,6 +6,7 @@ from datetime import date
 from numbers import Number
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import pandas as pd
 from stpstone.utils.calendars.calendar_br import DatesBRAnbima
@@ -117,12 +118,19 @@ class PostgresTradeImportRepository:
 
         Raises
         ------
+        FileNotFoundError
+            If no file matching ``str_file_name_like`` is found in ``self._path_data``.
         ValueError
             If ``str_table_name`` is unknown for an annual consolidated report file.
         """
         str_path_file = _cls_dir.choose_last_saved_file_w_rule(
             str(self._path_data), str_file_name_like
         )
+        if not str_path_file:
+            raise FileNotFoundError(
+                f"No file matching '{str_file_name_like}' found in '{self._path_data}'. "
+                "Download the B3 report and place it in that directory."
+            )
         list_cols_dt = [k for k, v in dict_dtypes.items() if v == "date"]
         dict_load_dtypes = {k: v if str(v) != "date" else str for k, v in dict_dtypes.items()}
 
@@ -171,8 +179,11 @@ class PostgresTradeImportRepository:
         for str_col in list_cols_dt:
             df_[str_col] = ["01/01/2100" if x == "-" else x for x in df_[str_col]]
             df_[str_col] = [
-                _cls_dates.str_date_to_date(d, "DD/MM/AAAA") for d in df_[str_col]
+                _cls_dates.str_date_to_date(d, "DD/MM/YYYY") for d in df_[str_col]
             ]
+
+        if "cnpj" in df_.columns:
+            df_["cnpj"] = df_["cnpj"].astype(str).str.replace(r"\.0$", "", regex=True)
 
         df_ = _add_pk(df_, str_table_name)
         return df_
@@ -309,4 +320,11 @@ def _add_pk(df_: pd.DataFrame, str_table_name: str) -> pd.DataFrame:
             + df_["quantidade"].astype(str).str.replace(".", ",", regex=False)
             + df_["preco"].astype(str).str.replace(".", ",", regex=False)
         )
+    elif str_table_name in (
+        "b3_posicao_acoes",
+        "b3_posicao_emprestimos",
+        "b3_proventos_recebidos",
+        "b3_reembolso_emprestimos",
+    ):
+        df_["id"] = [str(uuid4()) for _ in range(len(df_))]
     return df_

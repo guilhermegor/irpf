@@ -76,10 +76,10 @@ check_consistency:
 # -------------------
 # RUN
 # -------------------
-.PHONY: start
+.PHONY: run
 
-start:
-	@bash bin/start.sh
+run:
+	@bash bin/run.sh
 
 # -------------------
 # DATABASE
@@ -163,7 +163,7 @@ help:
 	@echo "  docs_server          Serve MkDocs site locally at http://0.0.0.0:8000"
 	@echo ""
 	@echo "Run"
-	@echo "  start                Run src/main.py (auto-installs Poetry if missing)"
+	@echo "  run                  Start services, apply migrations, run src/main.py"
 	@echo ""
 	@echo "Database"
 	@echo "  db-setup-schema      Create TAXPAYER schema in DB and run Alembic migrations"

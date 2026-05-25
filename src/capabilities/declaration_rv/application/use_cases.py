@@ -92,27 +92,33 @@ def _build_report(cls_data: DeclarationData, dict_cfg: dict) -> str:
     int_places = dict_cfg.get("decimal_places", 2)
     dict_contrib = dict_cfg["contributor"]
 
-    str_out = "**************** 0. CONTRIBUTOR DATA ****************\n\n"
-    str_out += f"Full Name: {dict_contrib['full_name']}\n"
-    str_out += f"CPF: {dict_contrib['cpf']}\n\n"
+    str_out = "**************** 0. DADOS DO CONTRIBUINTE ****************\n\n"
+    str_out += f"{dict_contrib['full_name_key']}{dict_contrib['full_name']}\n"
+    str_out += f"{dict_contrib['cpf_key']}{dict_contrib['cpf']}\n\n"
 
-    str_out += "**************** 1. ASSETS AND RIGHTS ****************\n\n"
+    str_out += "**************** 1. BENS E DIREITOS ****************\n\n"
     for cls_pos in cls_data.list_positions:
         str_out += _section_position(cls_pos, cls_data.int_year, dict_cfg, int_places)
 
-    str_out += "\n\n**************** 2. DIVIDENDS — EXEMPT NON-TAXABLE INCOME ****************\n\n"
+    str_out += (
+        "\n\n**************** 2. DIVIDENDOS - RENDIMENTOS ISENTOS E NÃO TRIBUTÁVEIS"
+        " ****************\n\n"
+    )
     for cls_evt in cls_data.list_exempt_dividends:
         str_out += _section_income_event(
             cls_evt, dict_cfg["exempt_non_taxable_income"], int_places
         )
 
-    str_out += "\n\n**************** 3. JCP — TAXABLE INCOME ****************\n\n"
+    str_out += (
+        "\n\n**************** 3. JCP - RENDIMENTOS SUJEITOS À TRIBUTAÇÃO"
+        " EXCLUSIVA/DEFINITVA *****************\n\n"
+    )
     for cls_evt in cls_data.list_taxable_jcp:
         str_out += _section_income_event(cls_evt, dict_cfg["taxable_income_jcp"], int_places)
 
     str_out += (
-        "\n\n**************** 4. FRACTION AUCTION — EXEMPT NON-TAXABLE INCOME"
-        " ****************\n\n"
+        "\n\n**************** 4. LEILÃO DE FRAÇÃO DE AÇÕES - RENDIMENTOS ISENTOS E NÃO"
+        " TRIBUTÁVEIS ****************\n\n"
     )
     for cls_evt in cls_data.list_fraction_auction:
         str_out += _section_fraction_auction(
@@ -120,25 +126,35 @@ def _build_report(cls_data: DeclarationData, dict_cfg: dict) -> str:
         )
 
     str_out += (
-        "\n\n**************** 5. BONUS SHARES — EXEMPT NON-TAXABLE INCOME ****************\n\n"
+        "\n\n**************** 5. BONIFICAÇÃO EM AÇÕES - RENDIMENTOS ISENTOS E NÃO"
+        " TRIBUTÁVEIS ****************\n\n"
     )
     for cls_evt in cls_data.list_bonus_shares:
         str_out += _section_income_event(
             cls_evt, dict_cfg["exempt_non_taxable_bonus_shares"], int_places
         )
 
-    str_out += "\n\n**************** 6. MONETARY UPDATE INCOME — TAXABLE ****************\n\n"
+    str_out += (
+        "\n\n**************** 6. RENDIMENTOS DE ATUALIZAÇÕES DE BASES MONETÁRIAS -"
+        " RENDIMENTOS SUJEITOS À TRIBUTAÇÃO EXCLUSIVA/DEFINITVA ****************\n\n"
+    )
     for cls_evt in cls_data.list_taxable_monetary_update:
         str_out += _section_income_event(
             cls_evt, dict_cfg["taxable_income_monetary_update"], int_places
         )
 
-    str_out += "\n\n**************** 7. STOCK LENDING INCOME — TAXABLE ****************\n\n"
+    str_out += (
+        "\n\n**************** 7. RENDIMENTOS COM ALUGUEL DE AÇÕES  - RENDIMENTOS SUJEITOS"
+        " À TRIBUTAÇÃO EXCLUSIVA / DEFINITIVA****************\n\n"
+    )
     str_out += _section_scalar(
         cls_data.decimal_lending_income, dict_cfg["taxable_income_stock_lending"], int_places
     )
 
-    str_out += "\n\n**************** 8. LENDING REIMBURSEMENT — EXEMPT ****************\n\n"
+    str_out += (
+        "\n\n**************** 8. RENDIMENTOS COM REEMBOLSO DE PROVENTOS  - RENDIMENTOS"
+        " ISENTOS E NÃO TRIBUTÁVEIS ****************\n\n"
+    )
     str_out += _section_reimbursement(
         cls_data.decimal_reimbursement,
         dict_cfg["exempt_non_taxable_reimbursement"],

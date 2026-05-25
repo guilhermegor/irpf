@@ -97,8 +97,8 @@ check_consistency() {
 # RUN
 # -------------------
 
-start() {
-    bash "$SCRIPT_DIR/bin/start.sh"
+run() {
+    bash "$SCRIPT_DIR/bin/run.sh"
 }
 
 # -------------------
@@ -152,7 +152,7 @@ Docs
   docs_server          Serve MkDocs site locally at http://0.0.0.0:8000
 
 Run
-  start                Run src/main.py (auto-installs Poetry if missing)
+  run                  Start services, apply migrations, run src/main.py
 
 Git Diff (offline sync — only present when scaffolded without GitHub)
   git_diff_export             Export commits (DIFF_RANGE, default main..HEAD) to git_diffs/
@@ -181,7 +181,7 @@ case "${1:-help}" in
     lint)                lint ;;
     check_consistency)   check_consistency ;;
     docs_server)         docs_server ;;
-    start)               start ;;
+    run)                 run ;;
     git_diff_export)     git_diff_export ;;
     git_diff_check)      git_diff_check "${2:-}" ;;
     git_diff_apply)      git_diff_apply "${2:-}" ;;

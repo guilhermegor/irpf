@@ -44,13 +44,13 @@ _dt_str: str = _dt_run.strftime("%Y%m%d")
 _time_str: str = _dt_run_time.strftime("%H%M%S")
 
 PATH_LOG: Path = _daily_infos_dir / YAML_OUTPUTS["log_name"].format(
-    APP_NAME, ENVIRONMENT, USER, _dt_str, _time_str
+    ENVIRONMENT, APP_NAME, USER, _dt_str, _time_str
 )
 PATH_JSON: Path = _daily_infos_dir / YAML_OUTPUTS["json_name"].format(
-    APP_NAME, ENVIRONMENT, USER, _dt_str, _time_str
+    ENVIRONMENT, APP_NAME, USER, _dt_str, _time_str
 )
 PATH_TXT: Path = _daily_infos_dir / YAML_OUTPUTS["txt_name"].format(
-    APP_NAME, ENVIRONMENT, USER, _dt_str, _time_str
+    ENVIRONMENT, APP_NAME, USER, _dt_str, _time_str
 )
 
 DIR_PARENT = str(_daily_infos_dir)

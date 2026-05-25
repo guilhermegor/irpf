@@ -35,16 +35,21 @@ cd irpf
 
 # 2. Copy and fill in credentials
 cp .env.example .env
-# Edit .env — set DB_USER, DB_PASSWORD, DB_NAME, and pgAdmin credentials
+# Edit .env — set TAXPAYER, DB_USER, DB_PASSWORD, DB_NAME, and pgAdmin credentials
 
-# 3. Install Python dependencies
-poetry install
+# 3. Bootstrap venv and pre-commit hooks
+make init
 
-# 4. Start PostgreSQL and pgAdmin
-docker compose up -d
+# 4. Create your taxpayer schema and apply all DB migrations
+make db-setup-schema
 
-# 5. Apply all DB migrations (creates tables + views)
-poetry run alembic upgrade head
+# 5. Download your B3 reports and place them in ~/daily_infos/<today>/
+#    See "Where to put your B3 Excel files" below for the exact files,
+#    naming convention, and step-by-step download instructions from
+#    investidor.b3.com.br (Extrato → Movimentação / Negociação / Posição consolidada).
+
+# 6. Run the app (also starts Docker services on subsequent runs)
+make run
 ```
 
 pgAdmin is available at **http://localhost:5050** (default credentials: `admin@irpf.local` / `admin`).
@@ -76,33 +81,40 @@ The folder is created automatically when the app starts.
 The base path is controlled by `inputs.yaml → import_trades.data_path` (default `~/daily_infos`);
 the app appends today's date automatically.
 
-### Expected file names (B3 export naming convention)
+### Expected file names
 
-| Report | Filename pattern | Example |
-|--------|-----------------|---------|
-| Movements | `movimentacao-YYYY*.xlsx` | `movimentacao-2025-01-01_a_2025-12-31.xlsx` |
-| Negotiations | `negociacao-YYYY*.xlsx` | `negociacao-01-01-2025_a_31-12-2025.xlsx` |
-| Annual consolidated | `relatorio-consolidado-anual-YYYY.xlsx` | `relatorio-consolidado-anual-2024.xlsx` |
+B3 exports use their default names — you only need to add the `<TAXPAYER>-` prefix
+(the value of `TAXPAYER` in your `.env`) before placing them in the folder.
 
-> The app picks the **most recent file** that matches each pattern — you do not need to rename
-> anything after downloading.
+| Report | Filename pattern | Example (`TAXPAYER=gor`) |
+|--------|-----------------|--------------------------|
+| Movements | `<TAXPAYER>-movimentacao-YYYY*.xlsx` | `gor-movimentacao-2025-01-01_a_2025-12-31.xlsx` |
+| Negotiations | `<TAXPAYER>-negociacao-YYYY*.xlsx` | `gor-negociacao-01-01-2025_a_31-12-2025.xlsx` |
+| Annual consolidated | `<TAXPAYER>-relatorio-consolidado-anual-YYYY.xlsx` | `gor-relatorio-consolidado-anual-2024.xlsx` |
+
+> After downloading, rename each file to prepend `<TAXPAYER>-` before placing it in the folder.
+> The app then picks the **most recent file** matching each pattern.
 
 ### Where to download each report
 
-1. Log in to the B3 Investor Area at `investidor.b3.com.br`
-2. **Movements** → "Extrato" → "Movimentação" → select year → "Exportar"
-3. **Negotiations** → "Extrato" → "Negociação" → select year → "Exportar"
-4. **Annual consolidated** → "Extrato" → "Posição consolidada" → select year → "Exportar"
+1. Log in to the B3 Investor Area at [investidor.b3.com.br](https://www.investidor.b3.com.br/)
+2. **Movements** → "Extratos" → "Movimentação" → "Filtrar" → select from first to last day of the desired year → "Baixar"
+3. **Negotiations** → "Extratos" → "Negociação" → "Filtrar" → select from first to last day of the desired year → "Baixar"
+4. **Annual consolidated** → "Relatórios" → "Relatório Consolidado" → "Selecione o período que deseja visualizar" → "Anual" <!-- codespell:ignore --> → select the desired year → Arquivo em excel → "Baixar relatório"
 
-Place all three files in `~/daily_infos/<YYYY-MM-DD>/` (today's date) before running.
+Place all three renamed files in `~/daily_infos/<YYYY-MM-DD>/` (today's date) before running.
 
 ---
 
 ## Running the app
 
 ```bash
-poetry run python src/main.py
+make run
 ```
+
+This starts PostgreSQL + pgAdmin (if not already running), applies any pending
+migrations, then executes `src/main.py`. It is safe to call on every run — all
+three steps are idempotent.
 
 The app will:
 1. Read B3 Excel files from `~/daily_infos/<YYYY-MM-DD>/`
@@ -125,9 +137,9 @@ All outputs land in **`~/daily_infos/<YYYY-MM-DD>/`**, created automatically on 
 
 | File | Contents |
 |------|---------|
-| `irpf-development_<USER>_<YYYYMMDD>_<HHMMSS>.log` | Execution log |
-| `irpf-development_<USER>_<YYYYMMDD>_<HHMMSS>.json` | Import summary (rows per table) |
-| `irpf-development_<USER>_<YYYYMMDD>_<HHMMSS>.txt` | **IRPF declaration report** ← copy this |
+| `development-irpf_<USER>_<YYYYMMDD>_<HHMMSS>.log` | Execution log |
+| `development-irpf_<USER>_<YYYYMMDD>_<HHMMSS>.json` | Import summary (rows per table) |
+| `development-irpf_<USER>_<YYYYMMDD>_<HHMMSS>.txt` | **IRPF declaration report** ← copy this |
 
 The `.txt` report contains 8 sections matching the IRPF program tabs:
 
@@ -151,7 +163,7 @@ Each year you only need to:
 
 1. Download new B3 Excel files into `~/daily_infos/<today>/`
 2. Update `inputs.yaml → declaration_rv.contributor` if anything changed
-3. Run `poetry run python src/main.py`
+3. Run `make run`
 
 No schema changes are needed — the views recalculate from all historical data automatically.
 
