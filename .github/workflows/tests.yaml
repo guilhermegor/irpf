@@ -1,0 +1,125 @@
+name: Run Tests
+
+on:
+  workflow_call:
+    outputs:
+      ready_for_release:
+        description: "Whether all tests passed successfully"
+        value: ${{ jobs.test.result == 'success' }}
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+a[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+b[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+rc[0-9]+"
+
+jobs:
+  test:
+    name: Run Automated Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set Up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-in-project: true
+          virtualenvs-create: true
+          version: 2.1.2
+
+      - name: Load Cached Virtual Environment
+        id: cached-venv
+        uses: actions/cache@v3
+        with:
+          path: |
+            .venv
+            poetry.lock
+          key: venv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
+
+      - name: Install Dependencies
+        if: steps.cached-venv.outputs.cache-hit != 'true'
+        run: |
+          cp pyproject.toml pyproject.original.toml
+          cat pyproject.original.toml | python -c '
+          import sys, re, os as _os
+          content = sys.stdin.read()
+          if _os.name != "nt":
+              content = re.sub(r".*platform\s*=\s*\"win32\".*", "", content)
+              content = re.sub(r"pywin32\s*=.*\n", "", content)
+          print(content)
+          ' > pyproject.toml
+
+          # Regenerate lock file, if needed
+          if ! poetry check --lock; then
+            echo "Lock file is outdated, regenerating..."
+            rm -f poetry.lock
+            poetry lock --no-cache
+          fi
+
+          echo "No groups to exclude, installing all dependencies"
+          poetry install --no-interaction --no-root
+
+          # Restore original pyproject.toml
+          mv pyproject.original.toml pyproject.toml
+          poetry env activate
+
+      - name: Run Spell Check (codespell)
+        if: runner.os == 'Linux'
+        run: |
+          poetry run codespell .
+          if [ $? -ne 0 ]; then
+            echo "Typos found! Run 'codespell .' locally to see them."
+            exit 1
+          fi
+
+      - name: Run Docstring Type Consistency Check
+        if: runner.os == 'Linux'
+        run: |
+          poetry run python -m pydocstyle --select=D412,D417 --match="(src|tests).*\\.py" src/ tests/
+          poetry run python bin/check_consistency.py
+
+      - name: Run Ruff Linting
+        if: runner.os == 'Linux'
+        run: |
+          poetry run ruff check src/ tests/ --config=ruff.toml
+          if [ $? -ne 0 ]; then
+            echo "Ruff found issues! Run 'ruff check src/ tests/' locally see details."
+            echo "To fix automatically, run: poetry run ruff check --fix src/ tests/"
+            exit 1
+          fi
+
+      - name: Run Integration Tests
+        run: poetry run pytest tests/integration/ -v
+
+      - name: Run Unit Tests
+        run: poetry run pytest tests/unit/
+
+      - name: Run Coverage Report
+        if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/') }}
+        run: |
+          poetry run pytest --cov=src --cov-report=xml --no-header -q tests/unit/
+          poetry run coverage-badge -o coverage.svg -f
+
+      - name: Upload Badge
+        if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-badge-${{ matrix.os }}-${{ matrix.python-version }}
+          path: coverage.svg
