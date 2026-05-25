@@ -7,7 +7,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Ensure all commands run from the project root (parent of bin/).
-cd "$SCRIPT_DIR/.."
+cd "$SCRIPT_DIR/.." || exit 1
+
+# chassis.* imports resolve against src/ — make it the first path entry.
+export PYTHONPATH="${SCRIPT_DIR}/..:${SCRIPT_DIR}/../src${PYTHONPATH:+:${PYTHONPATH}}"
 
 # 1. Bring up PostgreSQL + pgAdmin (idempotent — safe on every run).
 docker compose up -d
