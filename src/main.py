@@ -2,22 +2,45 @@
 
 from __future__ import annotations
 
-from app.bootstrap import cls_create_log, init, teardown
-from app.container import build
-from capabilities.example_feature.domain.dto import NoteCreateDTO
-from src.config.startup import CLS_MS_TEAMS, ENVIRONMENT, LOGGER, MSG_MS_TEAMS, YAML_WEBHOOKS
+from stpstone.utils.parsers.json import JsonFiles
+from stpstone.utils.parsers.txt import HandlingTXTFiles
+
+from src.app.bootstrap import cls_create_log, init, teardown
+from src.app.container import build, build_jobs
+from src.config.startup import (
+    CLS_MS_TEAMS,
+    ENVIRONMENT,
+    LOGGER,
+    MSG_MS_TEAMS,
+    PATH_JSON,
+    PATH_TXT,
+    YAML_INPUTS,
+    YAML_WEBHOOKS,
+)
 
 
 float_start_time = init()
 cls_container = build()
 
-cls_note = cls_container.create_note(NoteCreateDTO(title="Hello from DDD service!"))
-cls_create_log.log_message(logger=LOGGER, message=f"Created: {cls_note}", log_level="info")
+if YAML_INPUTS.get("run_import_trades", True):
+    cls_create_log.log_message(LOGGER, "Starting import_trades pipeline", "info")
+    list_results = cls_container.fn_import_trades(build_jobs())
+    for dict_result in list_results:
+        cls_create_log.log_message(
+            LOGGER,
+            f"Imported {dict_result['rows_processed']} rows into {dict_result['table_name']}",
+            "info",
+        )
+    JsonFiles().dump_message({"import_results": list_results}, str(PATH_JSON))
 
-list_all_notes = cls_container.list_notes()
-cls_create_log.log_message(logger=LOGGER, message=f"All notes: {list_all_notes}", log_level="info")
+if YAML_INPUTS.get("run_declaration_rv", True):
+    cls_create_log.log_message(LOGGER, "Starting declaration_rv pipeline", "info")
+    dict_report = cls_container.fn_generate_declaration()
+    cls_create_log.log_message(LOGGER, f"Declaration year: {dict_report['int_year']}", "info")
+    HandlingTXTFiles().write_file(str(PATH_TXT), dict_report["str_report"])
+    cls_create_log.log_message(LOGGER, f"Report written to {PATH_TXT}", "info")
 
 if ENVIRONMENT == "production":
-	CLS_MS_TEAMS.send_message(str_msg=MSG_MS_TEAMS, str_title=YAML_WEBHOOKS["ms_teams"]["title"])
+    CLS_MS_TEAMS.send_message(str_msg=MSG_MS_TEAMS, str_title=YAML_WEBHOOKS["ms_teams"]["title"])
 
 teardown(float_start_time)

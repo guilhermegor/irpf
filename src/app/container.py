@@ -1,48 +1,223 @@
-"""Composition root: instantiates infrastructure and wires application entry points."""
+"""Composition root: wire infrastructure to application factories."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
+import os
+from pathlib import Path
 from typing import Callable
 
-from capabilities.example_feature.application import create_note, list_notes
-from capabilities.example_feature.domain.dto import NoteCreateDTO, NoteResponseDTO
-from capabilities.example_feature.infrastructure.repositories import InMemoryNoteRepository
-from chassis.db_schema.application import build_database_handler
+from stpstone.utils.calendars.calendar_br import DatesBRAnbima
+
+from src.capabilities.declaration_rv.application.use_cases import GenerateDeclaration
+from src.capabilities.declaration_rv.domain.dto import DeclarationReportDTO
+from src.capabilities.declaration_rv.infrastructure.repositories import (
+    PostgresDeclarationRepository,
+)
+from src.capabilities.import_trades.application.use_cases import ImportTrades
+from src.capabilities.import_trades.domain.dto import ImportResultDTO
+from src.capabilities.import_trades.domain.entities import TradeImportJob
+from src.capabilities.import_trades.infrastructure.repositories import (
+    PostgresTradeImportRepository,
+)
+from src.config.startup import YAML_INPUTS
+
+
+_cls_dates = DatesBRAnbima()
 
 
 @dataclass(frozen=True)
 class AppContainer:
-	"""Holds pre-wired application entry points ready for use by main.
+    """Pre-wired application entry points.
 
-	Attributes
-	----------
-	create_note : Callable[[NoteCreateDTO], NoteResponseDTO]
-		Create and persist a note from an inbound DTO.
-	list_notes : Callable[[], list[NoteResponseDTO]]
-		Retrieve all notes as response DTOs.
-	"""
+    Attributes
+    ----------
+    fn_import_trades : Callable[[list[TradeImportJob]], list[ImportResultDTO]]
+        Run all B3 Excel import jobs.
+    fn_generate_declaration : Callable[[], DeclarationReportDTO]
+        Generate the IRPF declaration report for the configured base year.
+    """
 
-	create_note: Callable[[NoteCreateDTO], NoteResponseDTO]
-	list_notes: Callable[[], list[NoteResponseDTO]]
+    fn_import_trades: Callable[[list[TradeImportJob]], list[ImportResultDTO]]
+    fn_generate_declaration: Callable[[], DeclarationReportDTO]
+
+
+def build_jobs() -> list[TradeImportJob]:
+    """Build the ordered list of B3 import jobs from config.
+
+    Returns
+    -------
+    list[TradeImportJob]
+        One job per B3 table, in insertion order.
+    """
+    int_year_ref = _cls_dates.year_number(_cls_dates.curr_date())
+    dt_date_ref: date = _cls_dates.build_date(int_year_ref, 1, 1)
+    int_year_prev = int_year_ref - 1
+
+    return [
+        TradeImportJob(
+            file_name_like=f"movimentacao-{int_year_ref}*.xlsx",
+            dict_dtypes={
+                "entrada_saida": str,
+                "data_pregao": "date",
+                "movimentacao": str,
+                "produto": str,
+                "instituicao": str,
+                "quantidade": float,
+                "preco_unitario": float,
+                "valor_operacao": float,
+            },
+            table_name="b3_movimentacao",
+            dt_date_ref=dt_date_ref,
+        ),
+        TradeImportJob(
+            file_name_like=f"negociacao-{int_year_ref}*.xlsx",
+            dict_dtypes={
+                "data_negocio": "date",
+                "tipo_movimentacao": str,
+                "mercado": str,
+                "prazo_vencimento": "date",
+                "instituicao": str,
+                "ticker": str,
+                "quantidade": int,
+                "preco": float,
+                "valor": float,
+            },
+            table_name="b3_negociacao",
+            dt_date_ref=dt_date_ref,
+        ),
+        TradeImportJob(
+            file_name_like=f"relatorio-consolidado-anual-{int_year_prev}.xlsx",
+            dict_dtypes={
+                "produto": str,
+                "instituicao": str,
+                "conta": int,
+                "codigo_negociacao": str,
+                "cnpj": str,
+                "codigo_isin": str,
+                "tipo": str,
+                "escriturador": str,
+                "quantidade": int,
+                "quantidade_disp": int,
+                "quantidade_indisp": int,
+                "motivo": str,
+                "preco_fechamento": float,
+                "valor_atualizado": float,
+                "data_pregao": "date",
+            },
+            table_name="b3_posicao_acoes",
+            dt_date_ref=_cls_dates.build_date(int_year_prev, 12, 31),
+        ),
+        TradeImportJob(
+            file_name_like=f"relatorio-consolidado-anual-{int_year_prev}.xlsx",
+            dict_dtypes={
+                "produto": str,
+                "instituicao": str,
+                "natureza": str,
+                "num_contrato": str,
+                "modalidade": str,
+                "opa": str,
+                "liquidacao_antecipada": str,
+                "taxa": float,
+                "comissao": float,
+                "data_registro": "date",
+                "data_vencimento": "date",
+                "quantidade": int,
+                "preco_fechamento": float,
+                "valor_atualizado": float,
+                "data_pregao": "date",
+            },
+            table_name="b3_posicao_emprestimos",
+            dt_date_ref=_cls_dates.build_date(int_year_prev, 12, 31),
+        ),
+        TradeImportJob(
+            file_name_like=f"relatorio-consolidado-anual-{int_year_prev}.xlsx",
+            dict_dtypes={
+                "produto": str,
+                "tipo_evento": str,
+                "valor_liquido": float,
+                "data_pregao": "date",
+            },
+            table_name="b3_proventos_recebidos",
+            dt_date_ref=_cls_dates.build_date(int_year_prev, 12, 31),
+        ),
+        TradeImportJob(
+            file_name_like=f"relatorio-consolidado-anual-{int_year_prev}.xlsx",
+            dict_dtypes={
+                "produto": str,
+                "tipo_evento": str,
+                "valor_liquido": float,
+                "data_pregao": "date",
+            },
+            table_name="b3_reembolso_emprestimos",
+            dt_date_ref=_cls_dates.build_date(int_year_prev, 12, 31),
+        ),
+        TradeImportJob(
+            file_name_like=f"movimentacao-{int_year_ref}*.xlsx",
+            dict_dtypes={
+                "entrada_saida": str,
+                "data_pregao": "date",
+                "movimentacao": str,
+                "produto": str,
+                "instituicao": str,
+                "quantidade": float,
+                "preco_unitario": float,
+                "valor_operacao": float,
+            },
+            table_name="b3_bonificacao_acoes",
+            dt_date_ref=dt_date_ref,
+        ),
+    ]
 
 
 def build() -> AppContainer:
-	"""Instantiate infrastructure and bind it to application factories.
+    """Instantiate infrastructure and bind to application factories.
 
-	Returns
-	-------
-	AppContainer
-		Fully wired container ready for use.
+    Credentials are read from environment variables (loaded via ``.env``).
 
-	Notes
-	-----
-	Replace ``InMemoryNoteRepository`` with a ``DatabaseSession``-backed
-	implementation once a persistent store is configured.
-	"""
-	cls_db_handler = build_database_handler()
-	cls_note_repo = InMemoryNoteRepository()
-	return AppContainer(
-		create_note=lambda cls_dto: create_note(cls_dto, cls_note_repo),
-		list_notes=lambda: list_notes(cls_note_repo),
-	)
+    Returns
+    -------
+    AppContainer
+        Fully wired container.
+    """
+    str_host = os.environ["DB_HOST"]
+    int_port = int(os.environ["DB_PORT"])
+    str_dbname = os.environ["DB_NAME"]
+    str_user = os.environ["DB_USER"]
+    str_password = os.environ["DB_PASSWORD"]
+
+    str_data_path = str(
+        Path(YAML_INPUTS["import_trades"]["data_path"]).expanduser()
+        / str(_cls_dates.curr_date())
+    )
+
+    cls_import_repo = PostgresTradeImportRepository(
+        str_data_path=str_data_path,
+        str_host=str_host,
+        int_port=int_port,
+        str_dbname=str_dbname,
+        str_user=str_user,
+        str_password=str_password,
+    )
+    cls_decl_repo = PostgresDeclarationRepository(
+        str_host=str_host,
+        int_port=int_port,
+        str_dbname=str_dbname,
+        str_user=str_user,
+        str_password=str_password,
+        dict_cfg=YAML_INPUTS["db"],
+    )
+
+    int_year_decl = (
+        _cls_dates.year_number(_cls_dates.curr_date())
+        - YAML_INPUTS["declaration_rv"]["base_year_offset"]
+    )
+    dict_decl_cfg = YAML_INPUTS["declaration_rv"]
+
+    return AppContainer(
+        fn_import_trades=lambda list_jobs: ImportTrades(cls_import_repo).execute(list_jobs),
+        fn_generate_declaration=lambda: GenerateDeclaration(cls_decl_repo, dict_decl_cfg).execute(
+            int_year_decl
+        ),
+    )
