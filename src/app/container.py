@@ -21,6 +21,8 @@ from src.capabilities.import_trades.domain.entities import TradeImportJob
 from src.capabilities.import_trades.infrastructure.repositories import (
     PostgresTradeImportRepository,
 )
+from src.chassis.db_schema.infrastructure.base import DatabaseSession
+import src.chassis.db_schema.infrastructure.models  # noqa: F401 — registers view models with Base
 from src.config.startup import TAXPAYER, YAML_INPUTS
 
 
@@ -206,14 +208,14 @@ def build() -> AppContainer:
         str_password=str_password,
         str_schema=TAXPAYER,
     )
+    str_dsn = (
+        f"postgresql+psycopg://{str_user}:{str_password}"
+        f"@{str_host}:{int_port}/{str_dbname}"
+        f"?options=-c%20search_path%3D{TAXPAYER}"
+    )
+    cls_db_session = DatabaseSession(str_dsn)
     cls_decl_repo = PostgresDeclarationRepository(
-        str_host=str_host,
-        int_port=int_port,
-        str_dbname=str_dbname,
-        str_user=str_user,
-        str_password=str_password,
-        dict_cfg=YAML_INPUTS["db"],
-        str_schema=TAXPAYER,
+        cls_session=cls_db_session.session(),
     )
 
     int_year_decl = (

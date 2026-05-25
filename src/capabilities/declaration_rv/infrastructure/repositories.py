@@ -4,100 +4,54 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-import pandas as pd
-from stpstone.utils.connections.databases.sql.postgresql_db import PostgreSQLDB
+from sqlalchemy import func, select, union
+from sqlalchemy.orm import Session
 
 from src.capabilities.declaration_rv.domain.entities import (
     DeclarationData,
     PortfolioPosition,
     TaxEvent,
 )
+from src.chassis.db_schema.infrastructure.models import (
+    PosicaoAcoesModel,
+    PosicaoEmprestimosModel,
+    VwBonificacoesModel,
+    VwPmPatrModel,
+    VwProventosModel,
+)
+
+
+_DIVIDENDO = "Dividendo"
+_DIVIDENDO_TRANSFERIDO = "Dividendo - Transferido"
+_JCP = "Juros Sobre Capital Próprio"
+_JCP_TRANSFERIDO = "Juros Sobre Capital Próprio - Transferido"
+_RENDIMENTO = "Rendimento"
+_LEILAO_FRACAO = "Leilão de Fração"
+_EMPRESTIMO = "Empréstimo"
+_REEMBOLSO = "Reembolso"
 
 
 class PostgresDeclarationRepository:
-    """Fetch IRPF declaration data from PostgreSQL views.
+    """Fetch IRPF declaration data from PostgreSQL views using SQLAlchemy ORM.
 
     Parameters
     ----------
-    str_host : str
-        PostgreSQL host.
-    int_port : int
-        PostgreSQL port.
-    str_dbname : str
-        PostgreSQL database name.
-    str_user : str
-        PostgreSQL username.
-    str_password : str
-        PostgreSQL password.
-    dict_cfg : dict
-        The ``db`` key from ``inputs.yaml`` (column names and SQL queries).
+    cls_session : Session
+        SQLAlchemy session scoped to the taxpayer schema.
     """
 
-    def __init__(
-        self,
-        str_host: str,
-        int_port: int,
-        str_dbname: str,
-        str_user: str,
-        str_password: str,
-        dict_cfg: dict,
-        str_schema: str = "public",
-    ) -> None:
-        """Initialise with database credentials and column/query configuration.
+    def __init__(self, cls_session: Session) -> None:
+        """Initialise with an injected SQLAlchemy session.
 
         Parameters
         ----------
-        str_host : str
-            PostgreSQL host.
-        int_port : int
-            PostgreSQL port.
-        str_dbname : str
-            PostgreSQL database name.
-        str_user : str
-            PostgreSQL username.
-        str_password : str
-            PostgreSQL password.
-        dict_cfg : dict
-            The ``db`` key from ``inputs.yaml``.
-        str_schema : str
-            PostgreSQL schema (taxpayer identifier, set via ``TAXPAYER`` env var).
+        cls_session : Session
+            SQLAlchemy session bound to the taxpayer schema.
         """
-        self._str_host = str_host
-        self._int_port = int_port
-        self._str_dbname = str_dbname
-        self._str_user = str_user
-        self._str_password = str_password
-        self._dict_cfg = dict_cfg
-        self._str_schema = str_schema
-
-    def _db(self) -> PostgreSQLDB:
-        """Create a new PostgreSQLDB connection with schema-scoped search_path."""
-        return PostgreSQLDB(
-            dbname=self._str_dbname,
-            user=self._str_user,
-            password=self._str_password,
-            host=self._str_host,
-            port=self._int_port,
-            str_schema=self._str_schema,
-        )
-
-    def _read(self, str_query: str) -> pd.DataFrame:
-        """Execute a SQL query and return the result as a DataFrame.
-
-        Parameters
-        ----------
-        str_query : str
-            SQL query string.
-
-        Returns
-        -------
-        pd.DataFrame
-            Query result.
-        """
-        return self._db().read(str_query)
+        self._cls_session = cls_session
 
     def fetch(self, int_year: int) -> DeclarationData:
-        """Query all PostgreSQL views and return a DeclarationData entity.
+        """Query all views and return a DeclarationData entity.
 
         Parameters
         ----------
@@ -109,99 +63,214 @@ class PostgresDeclarationRepository:
         DeclarationData
             Aggregated positions and income events for ``int_year``.
         """
-        dict_q = self._dict_cfg
-        str_col_op = dict_q["col_operation_value"]
-        str_col_ticker = dict_q["col_ticker"]
-        str_col_inst = dict_q["col_instrument"]
-        str_col_cnpj = dict_q["col_cnpj"]
-        str_col_company = dict_q["col_company_name"]
-        str_col_qty = dict_q["col_position_side"]
-        str_col_avg = dict_q["col_avg_buy_price"]
-        str_col_fin = dict_q["col_financial_position"]
-        str_col_mov = dict_q["col_movement_type"]
-
-        df_active = self._read(
-            dict_q["query_active_tickers_base_year"].format(int_year, int_year)
-        )
-        df_avg_price = self._read(dict_q["query_avg_price_portfolio"])
-        df_exempt_div = self._read(dict_q["query_exempt_dividends"].format(int_year))
-        df_taxable_jcp = self._read(dict_q["query_taxable_jcp"].format(int_year))
-        df_monetary = self._read(dict_q["query_monetary_update_income"].format(int_year))
-        df_lending = self._read(dict_q["query_stock_lending_income"].format(int_year))
-        df_reimbursement = self._read(dict_q["query_lending_reimbursement"].format(int_year))
-        df_fraction = self._read(dict_q["query_fraction_auction"].format(int_year))
-        df_bonus = self._read(dict_q["query_bonus_shares"].format(int_year))
-
-        list_tickers = df_active[str_col_ticker].dropna().unique().tolist()
+        list_tickers = self._active_tickers(int_year)
+        dict_portfolio = {row.instrumento: row for row in self._portfolio()}
 
         list_positions: list[PortfolioPosition] = []
         for str_ticker in list_tickers:
-            df_row = df_avg_price[df_avg_price[str_col_inst] == str_ticker]
-            if df_row.empty:
+            row = dict_portfolio.get(str_ticker)
+            if row is None:
                 continue
-            row = df_row.iloc[0]
             list_positions.append(
                 PortfolioPosition(
                     str_ticker=str_ticker,
-                    str_cnpj=_clean_cnpj(str(row[str_col_cnpj])),
-                    str_company_name=str(row[str_col_company]),
-                    int_quantity=int(row[str_col_qty]),
-                    decimal_avg_buy_price=Decimal(str(row[str_col_avg])),
-                    decimal_financial_position=Decimal(str(row[str_col_fin])),
+                    str_cnpj=_clean_cnpj(row.cnpj or ""),
+                    str_company_name=row.nome_compania or "",
+                    int_quantity=int(row.qtd_lado or 0),
+                    decimal_avg_buy_price=Decimal(str(row.preco_medio_compra or 0)),
+                    decimal_financial_position=Decimal(str(row.posicao_fin or 0)),
                 )
             )
 
-        def _evt(df_: pd.DataFrame, str_ticker: str) -> TaxEvent | None:
-            """Build a TaxEvent from the first matching row, or None if absent.
+        dict_dividends = _index_proventos(
+            self._proventos(int_year, [_DIVIDENDO, _DIVIDENDO_TRANSFERIDO])
+        )
+        dict_jcp = _index_proventos(self._proventos(int_year, [_JCP, _JCP_TRANSFERIDO]))
+        dict_monetary = _index_proventos(self._proventos(int_year, [_RENDIMENTO]))
+        dict_fraction = _index_proventos(self._proventos(int_year, [_LEILAO_FRACAO]))
+        dict_bonus = {row.ticker: row for row in self._bonificacoes(int_year)}
+
+        def _evt_proventos(
+            dict_rows: dict[str, VwProventosModel], str_ticker: str
+        ) -> TaxEvent | None:
+            """Build a TaxEvent from a proventos index entry, or None if absent.
 
             Parameters
             ----------
-            df_ : pd.DataFrame
-                Query result DataFrame containing ticker and financial columns.
+            dict_rows : dict[str, VwProventosModel]
+                Ticker-indexed proventos query result.
             str_ticker : str
                 Ticker to look up.
+
+            Returns
+            -------
+            TaxEvent | None
+                Income event entity, or ``None`` when the ticker has no matching event.
             """
-            if df_.empty or str_col_ticker not in df_.columns:
+            row = dict_rows.get(str_ticker)
+            if row is None:
                 return None
-            df_row = df_[df_[str_col_ticker] == str_ticker]
-            if df_row.empty:
-                return None
-            row = df_row.iloc[0]
             return TaxEvent(
                 str_ticker=str_ticker,
-                str_cnpj=_clean_cnpj(str(row[str_col_cnpj])),
-                str_company_name=str(row[str_col_company]),
-                str_event_type=str(row.get(str_col_mov, "")),
-                decimal_amount=Decimal(str(row[str_col_op])),
+                str_cnpj=_clean_cnpj(row.cnpj or ""),
+                str_company_name=row.nome_compania or "",
+                str_event_type=row.movimentacao,
+                decimal_amount=Decimal(str(row.valor_operacao or 0)),
             )
 
-        list_exempt_dividends = [e for t in list_tickers if (e := _evt(df_exempt_div, t))]
-        list_taxable_jcp = [e for t in list_tickers if (e := _evt(df_taxable_jcp, t))]
-        list_monetary = [e for t in list_tickers if (e := _evt(df_monetary, t))]
-        list_fraction = [e for t in list_tickers if (e := _evt(df_fraction, t))]
-        list_bonus = [e for t in list_tickers if (e := _evt(df_bonus, t))]
+        def _evt_bonus(str_ticker: str) -> TaxEvent | None:
+            """Build a bonus-share TaxEvent for a ticker, or None if absent.
 
-        decimal_lending = (
-            Decimal(str(df_lending[str_col_op].iloc[0]))
-            if not df_lending.empty and pd.notna(df_lending[str_col_op].iloc[0])
-            else Decimal("0")
-        )
-        decimal_reimbursement = (
-            Decimal(str(df_reimbursement[str_col_op].iloc[0]))
-            if not df_reimbursement.empty and pd.notna(df_reimbursement[str_col_op].iloc[0])
-            else Decimal("0")
-        )
+            Parameters
+            ----------
+            str_ticker : str
+                Ticker to look up.
+
+            Returns
+            -------
+            TaxEvent | None
+                Bonus share event entity, or ``None`` when the ticker has no bonus.
+            """
+            row = dict_bonus.get(str_ticker)
+            if row is None:
+                return None
+            return TaxEvent(
+                str_ticker=str_ticker,
+                str_cnpj=_clean_cnpj(row.cnpj or ""),
+                str_company_name=row.nome_compania or "",
+                str_event_type="Bonificação em Ativos",
+                decimal_amount=Decimal(str(row.valor_operacao or 0)),
+            )
 
         return DeclarationData(
             int_year=int_year,
             list_positions=list_positions,
-            list_exempt_dividends=list_exempt_dividends,
-            list_taxable_jcp=list_taxable_jcp,
-            list_taxable_monetary_update=list_monetary,
-            decimal_lending_income=decimal_lending,
-            decimal_reimbursement=decimal_reimbursement,
-            list_fraction_auction=list_fraction,
-            list_bonus_shares=list_bonus,
+            list_exempt_dividends=[
+                e for t in list_tickers if (e := _evt_proventos(dict_dividends, t))
+            ],
+            list_taxable_jcp=[
+                e for t in list_tickers if (e := _evt_proventos(dict_jcp, t))
+            ],
+            list_taxable_monetary_update=[
+                e for t in list_tickers if (e := _evt_proventos(dict_monetary, t))
+            ],
+            decimal_lending_income=self._scalar_proventos(int_year, _EMPRESTIMO),
+            decimal_reimbursement=self._scalar_proventos(int_year, _REEMBOLSO),
+            list_fraction_auction=[
+                e for t in list_tickers if (e := _evt_proventos(dict_fraction, t))
+            ],
+            list_bonus_shares=[e for t in list_tickers if (e := _evt_bonus(t))],
+        )
+
+    def _active_tickers(self, int_year: int) -> list[str]:
+        """Return all tickers active in a given year.
+
+        Parameters
+        ----------
+        int_year : int
+            Base year to filter by.
+
+        Returns
+        -------
+        list[str]
+            Sorted, deduplicated list of ticker strings.
+        """
+        stmt_acoes = select(PosicaoAcoesModel.codigo_negociacao.label("ticker")).where(
+            func.extract("year", PosicaoAcoesModel.data_pregao) == int_year,
+            PosicaoAcoesModel.codigo_negociacao.isnot(None),
+        )
+        stmt_emprestimos = select(
+            func.split_part(PosicaoEmprestimosModel.produto, " - ", 1).label("ticker")
+        ).where(
+            func.extract("year", PosicaoEmprestimosModel.data_pregao) == int_year,
+            PosicaoEmprestimosModel.produto.isnot(None),
+        )
+        stmt = union(stmt_acoes, stmt_emprestimos)
+        list_rows = self._cls_session.execute(stmt).fetchall()
+        return sorted({row.ticker for row in list_rows if row.ticker})
+
+    def _portfolio(self) -> list[VwPmPatrModel]:
+        """Return all rows from the average-price portfolio view.
+
+        Returns
+        -------
+        list[VwPmPatrModel]
+            All active positions with average price and financial value.
+        """
+        return list(self._cls_session.execute(select(VwPmPatrModel)).scalars().all())
+
+    def _proventos(
+        self, int_year: int, list_movimentacoes: list[str]
+    ) -> list[VwProventosModel]:
+        """Return income events of the given types for a base year.
+
+        Parameters
+        ----------
+        int_year : int
+            Base year to filter by.
+        list_movimentacoes : list[str]
+            Movement types to include.
+
+        Returns
+        -------
+        list[VwProventosModel]
+            Matching income event rows.
+        """
+        return list(
+            self._cls_session.execute(
+                select(VwProventosModel).where(
+                    VwProventosModel.ano_base == int_year,
+                    VwProventosModel.movimentacao.in_(list_movimentacoes),
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+    def _scalar_proventos(self, int_year: int, str_movimentacao: str) -> Decimal:
+        """Return the sum of valor_operacao for a single movement type.
+
+        Parameters
+        ----------
+        int_year : int
+            Base year to filter by.
+        str_movimentacao : str
+            Exact movement type string.
+
+        Returns
+        -------
+        Decimal
+            Aggregated value, or ``Decimal("0")`` when no rows match.
+        """
+        result = self._cls_session.execute(
+            select(func.sum(VwProventosModel.valor_operacao)).where(
+                VwProventosModel.ano_base == int_year,
+                VwProventosModel.movimentacao == str_movimentacao,
+            )
+        ).scalar()
+        return Decimal(str(result)) if result is not None else Decimal("0")
+
+    def _bonificacoes(self, int_year: int) -> list[VwBonificacoesModel]:
+        """Return bonus share events for a base year.
+
+        Parameters
+        ----------
+        int_year : int
+            Base year to filter by.
+
+        Returns
+        -------
+        list[VwBonificacoesModel]
+            Matching bonus share rows.
+        """
+        return list(
+            self._cls_session.execute(
+                select(VwBonificacoesModel).where(
+                    VwBonificacoesModel.ano_base == int_year
+                )
+            )
+            .scalars()
+            .all()
         )
 
 
@@ -219,3 +288,21 @@ def _clean_cnpj(str_cnpj: str) -> str:
         CNPJ string with any trailing '.0' removed.
     """
     return str_cnpj[:-2] if str_cnpj.endswith(".0") else str_cnpj
+
+
+def _index_proventos(
+    list_rows: list[VwProventosModel],
+) -> dict[str, VwProventosModel]:
+    """Index a proventos result list by ticker.
+
+    Parameters
+    ----------
+    list_rows : list[VwProventosModel]
+        Raw query result.
+
+    Returns
+    -------
+    dict[str, VwProventosModel]
+        Ticker to row mapping (view already aggregates per ticker/year/movimentacao).
+    """
+    return {row.ticker: row for row in list_rows}

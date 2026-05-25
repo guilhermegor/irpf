@@ -26,10 +26,15 @@ HOSTNAME: str = gethostname()
 ENVIRONMENT: str = os.getenv("ENV", "development").lower()
 APP_NAME: str = os.getenv("APP_NAME", "irpf")
 TAXPAYER: str = os.environ["TAXPAYER"]
+TAXPAYER_FULL_NAME: str = os.environ["TAXPAYER_FULL_NAME"]
+TAXPAYER_CPF: str = os.environ["TAXPAYER_CPF"]
 
 YAML_OUTPUTS: dict = reading_yaml(str(_CONFIG_DIR / "outputs.yaml"))
 YAML_WEBHOOKS: dict = reading_yaml(str(_CONFIG_DIR / "webhooks.yaml"))
 YAML_INPUTS: dict = reading_yaml(str(_CONFIG_DIR / "inputs.yaml"))
+
+YAML_INPUTS["declaration_rv"]["contributor"]["full_name"] = TAXPAYER_FULL_NAME
+YAML_INPUTS["declaration_rv"]["contributor"]["cpf"] = TAXPAYER_CPF
 
 CLS_MS_TEAMS = WebhookTeams(YAML_WEBHOOKS["ms_teams"]["url"])
 

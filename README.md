@@ -35,7 +35,8 @@ cd irpf
 
 # 2. Copy and fill in credentials
 cp .env.example .env
-# Edit .env — set TAXPAYER, DB_USER, DB_PASSWORD, DB_NAME, and pgAdmin credentials
+# Edit .env — set TAXPAYER, TAXPAYER_FULL_NAME, TAXPAYER_CPF,
+#             DB_USER, DB_PASSWORD, DB_NAME, and pgAdmin credentials
 
 # 3. Bootstrap venv and pre-commit hooks
 make init
@@ -58,16 +59,14 @@ pgAdmin is available at **http://localhost:5050** (default credentials: `admin@i
 
 ## Configuring your personal data
 
-Open `src/config/inputs.yaml` and fill in the `declaration_rv.contributor` block:
+Your full name and CPF are read from `.env` — never committed to the repository:
 
-```yaml
-declaration_rv:
-  contributor:
-    full_name: "YOUR FULL LEGAL NAME"
-    cpf: "000.000.000-00"
+```dotenv
+TAXPAYER_FULL_NAME=YOUR FULL LEGAL NAME
+TAXPAYER_CPF=000.000.000-00
 ```
 
-All other fields (paths, queries, label strings) are ready to use as-is.
+All other fields in `src/config/inputs.yaml` (paths, queries, label strings) are ready to use as-is.
 
 ---
 

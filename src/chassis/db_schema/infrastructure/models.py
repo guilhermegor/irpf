@@ -345,3 +345,92 @@ class BonificacaoAcoesModel(Base):
     quantidade: Mapped[Optional[float]] = mapped_column(Numeric(18, 6), nullable=True)
     preco_unitario: Mapped[Optional[float]] = mapped_column(Numeric(18, 6), nullable=True)
     valor_operacao: Mapped[Optional[float]] = mapped_column(Numeric(18, 2), nullable=True)
+
+
+# ---------------------------------------------------------------------------
+# Read-only view models — never passed to session.add()
+# ---------------------------------------------------------------------------
+
+
+class VwProventosModel(Base):
+    """Read-only ORM model for the b3_vw_proventos view.
+
+    Attributes
+    ----------
+    ano_base : int
+        Base year extracted from data_pregao.
+    ticker : str
+        B3 ticker symbol.
+    cnpj : str, optional
+        Company CNPJ (tax ID).
+    nome_compania : str, optional
+        Company name.
+    movimentacao : str
+        Income event type (Dividendo, Juros Sobre Capital Proprio, etc.).
+    valor_operacao : float, optional
+        Aggregated net value for the year.
+    """
+
+    __tablename__ = "b3_vw_proventos"
+
+    ano_base: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ticker: Mapped[str] = mapped_column(String(20), primary_key=True)
+    cnpj: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    nome_compania: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    movimentacao: Mapped[str] = mapped_column(String(200), primary_key=True)
+    valor_operacao: Mapped[Optional[float]] = mapped_column(Numeric(18, 2), nullable=True)
+
+
+class VwPmPatrModel(Base):
+    """Read-only ORM model for the b3_vw_pm_patr view.
+
+    Attributes
+    ----------
+    instrumento : str
+        B3 ticker symbol (primary key).
+    preco_medio_compra : float, optional
+        Weighted average buy price.
+    qtd_lado : float, optional
+        Net quantity held (buys minus sells).
+    posicao_fin : float, optional
+        Financial position (qtd_lado * preco_medio_compra).
+    cnpj : str, optional
+        Company CNPJ from the most recent position record.
+    nome_compania : str, optional
+        Company name from the most recent position record.
+    """
+
+    __tablename__ = "b3_vw_pm_patr"
+
+    instrumento: Mapped[str] = mapped_column(String(20), primary_key=True)
+    preco_medio_compra: Mapped[Optional[float]] = mapped_column(Numeric(18, 6), nullable=True)
+    qtd_lado: Mapped[Optional[float]] = mapped_column(Numeric(18, 0), nullable=True)
+    posicao_fin: Mapped[Optional[float]] = mapped_column(Numeric(18, 2), nullable=True)
+    cnpj: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    nome_compania: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
+
+class VwBonificacoesModel(Base):
+    """Read-only ORM model for the b3_vw_bonificacoes view.
+
+    Attributes
+    ----------
+    ano_base : int
+        Base year extracted from data_pregao.
+    ticker : str
+        B3 ticker symbol.
+    cnpj : str, optional
+        Company CNPJ (tax ID).
+    nome_compania : str, optional
+        Company name.
+    valor_operacao : float, optional
+        Total bonus share value for the year.
+    """
+
+    __tablename__ = "b3_vw_bonificacoes"
+
+    ano_base: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ticker: Mapped[str] = mapped_column(String(20), primary_key=True)
+    cnpj: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    nome_compania: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    valor_operacao: Mapped[Optional[float]] = mapped_column(Numeric(18, 2), nullable=True)
