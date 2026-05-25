@@ -6,7 +6,7 @@ from abc import abstractmethod
 from typing import Any, Generator, Optional, TypeVar
 import uuid
 
-from chassis.typing import ABCTypeCheckerMeta
+from stpstone.transformations.validation.metaclass_type_checker import ABCTypeCheckerMeta
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker, DeclarativeBase
