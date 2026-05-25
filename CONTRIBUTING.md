@@ -22,7 +22,7 @@ Body (optional): one blank line after the subject, then bullet points explaining
 
 ## Alembic migration messages
 
-Alembic `-m` messages become the migration **filename suffix** — keep them readable as a path segment.
+Alembic `-m` messages become the filename suffix — keep them readable as a path segment.
 
 Convention: `verb_subject_detail` in `snake_case`
 
@@ -37,9 +37,25 @@ Convention: `verb_subject_detail` in `snake_case`
 
 **Never put `feat:` or Conventional Commit prefixes in the Alembic message** — that belongs in the git commit that ships the migration file.
 
-Example pairing:
+## Alembic file naming — date+time prefix
+
+`alembic.ini` is configured with a `file_template` that prepends `YYYYMMDD_HHMM` to every
+generated file:
+
 ```
+20260525_1454_7b98ce6f574f_create_b3_tables.py
+```
+
+This makes chronological order visible at a glance in any file browser or `ls` listing.
+Alembic's actual migration order is determined by the `down_revision` chain inside each
+file — the prefix is informational only and does not affect execution order.
+
+Example full pairing:
+
+```bash
 alembic revision -m "create_irpf_views"
+# → generates: 20260525_1454_8ef63ada69a6_create_irpf_views.py
+
 git commit -m "feat: add alembic migration — irpf views with sum aggregators"
 ```
 

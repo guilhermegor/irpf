@@ -21,7 +21,7 @@ from src.capabilities.import_trades.domain.entities import TradeImportJob
 from src.capabilities.import_trades.infrastructure.repositories import (
     PostgresTradeImportRepository,
 )
-from src.config.startup import YAML_INPUTS
+from src.config.startup import TAXPAYER, YAML_INPUTS
 
 
 _cls_dates = DatesBRAnbima()
@@ -43,8 +43,13 @@ class AppContainer:
     fn_generate_declaration: Callable[[], DeclarationReportDTO]
 
 
-def build_jobs() -> list[TradeImportJob]:
+def build_jobs(str_taxpayer: str = TAXPAYER) -> list[TradeImportJob]:
     """Build the ordered list of B3 import jobs from config.
+
+    Parameters
+    ----------
+    str_taxpayer : str
+        Taxpayer identifier prefix used in B3 file names (from ``TAXPAYER`` env var).
 
     Returns
     -------
@@ -57,7 +62,7 @@ def build_jobs() -> list[TradeImportJob]:
 
     return [
         TradeImportJob(
-            file_name_like=f"movimentacao-{int_year_ref}*.xlsx",
+            file_name_like=f"{str_taxpayer}-movimentacao-{int_year_ref}*.xlsx",
             dict_dtypes={
                 "entrada_saida": str,
                 "data_pregao": "date",
@@ -72,7 +77,7 @@ def build_jobs() -> list[TradeImportJob]:
             dt_date_ref=dt_date_ref,
         ),
         TradeImportJob(
-            file_name_like=f"negociacao-{int_year_ref}*.xlsx",
+            file_name_like=f"{str_taxpayer}-negociacao-{int_year_ref}*.xlsx",
             dict_dtypes={
                 "data_negocio": "date",
                 "tipo_movimentacao": str,
@@ -88,7 +93,7 @@ def build_jobs() -> list[TradeImportJob]:
             dt_date_ref=dt_date_ref,
         ),
         TradeImportJob(
-            file_name_like=f"relatorio-consolidado-anual-{int_year_prev}.xlsx",
+            file_name_like=f"{str_taxpayer}-relatorio-consolidado-anual-{int_year_prev}.xlsx",
             dict_dtypes={
                 "produto": str,
                 "instituicao": str,
@@ -110,7 +115,7 @@ def build_jobs() -> list[TradeImportJob]:
             dt_date_ref=_cls_dates.build_date(int_year_prev, 12, 31),
         ),
         TradeImportJob(
-            file_name_like=f"relatorio-consolidado-anual-{int_year_prev}.xlsx",
+            file_name_like=f"{str_taxpayer}-relatorio-consolidado-anual-{int_year_prev}.xlsx",
             dict_dtypes={
                 "produto": str,
                 "instituicao": str,
@@ -132,7 +137,7 @@ def build_jobs() -> list[TradeImportJob]:
             dt_date_ref=_cls_dates.build_date(int_year_prev, 12, 31),
         ),
         TradeImportJob(
-            file_name_like=f"relatorio-consolidado-anual-{int_year_prev}.xlsx",
+            file_name_like=f"{str_taxpayer}-relatorio-consolidado-anual-{int_year_prev}.xlsx",
             dict_dtypes={
                 "produto": str,
                 "tipo_evento": str,
@@ -143,7 +148,7 @@ def build_jobs() -> list[TradeImportJob]:
             dt_date_ref=_cls_dates.build_date(int_year_prev, 12, 31),
         ),
         TradeImportJob(
-            file_name_like=f"relatorio-consolidado-anual-{int_year_prev}.xlsx",
+            file_name_like=f"{str_taxpayer}-relatorio-consolidado-anual-{int_year_prev}.xlsx",
             dict_dtypes={
                 "produto": str,
                 "tipo_evento": str,
@@ -154,7 +159,7 @@ def build_jobs() -> list[TradeImportJob]:
             dt_date_ref=_cls_dates.build_date(int_year_prev, 12, 31),
         ),
         TradeImportJob(
-            file_name_like=f"movimentacao-{int_year_ref}*.xlsx",
+            file_name_like=f"{str_taxpayer}-movimentacao-{int_year_ref}*.xlsx",
             dict_dtypes={
                 "entrada_saida": str,
                 "data_pregao": "date",
@@ -199,6 +204,7 @@ def build() -> AppContainer:
         str_dbname=str_dbname,
         str_user=str_user,
         str_password=str_password,
+        str_schema=TAXPAYER,
     )
     cls_decl_repo = PostgresDeclarationRepository(
         str_host=str_host,
@@ -207,6 +213,7 @@ def build() -> AppContainer:
         str_user=str_user,
         str_password=str_password,
         dict_cfg=YAML_INPUTS["db"],
+        str_schema=TAXPAYER,
     )
 
     int_year_decl = (

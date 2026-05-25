@@ -25,6 +25,7 @@ USER: str = getuser()
 HOSTNAME: str = gethostname()
 ENVIRONMENT: str = os.getenv("ENV", "development").lower()
 APP_NAME: str = os.getenv("APP_NAME", "irpf")
+TAXPAYER: str = os.environ["TAXPAYER"]
 
 YAML_OUTPUTS: dict = reading_yaml(str(_CONFIG_DIR / "outputs.yaml"))
 YAML_WEBHOOKS: dict = reading_yaml(str(_CONFIG_DIR / "webhooks.yaml"))

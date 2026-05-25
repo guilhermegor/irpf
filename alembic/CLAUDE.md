@@ -7,6 +7,24 @@ Guidance for Claude Code when working with Alembic migrations in this project.
 `alembic revision -m "<message>"` — the message becomes the filename suffix.
 Convention: `verb_subject_detail` in `snake_case`. See `CONTRIBUTING.md` for the full table.
 
+## File naming — date+time prefix
+
+`alembic.ini` is configured with:
+
+```
+file_template = %%(year)d%%(month).2d%%(day).2d_%%(hour).2d%%(minute).2d_%%(rev)s_%%(slug)s
+```
+
+This produces filenames like `20260525_1454_7b98ce6f574f_create_b3_tables.py`.
+
+**Why:** the prefix makes the chronological order visible without reading the `down_revision`
+chain. Alembic's migration order is still determined by `down_revision`/`revision` — the
+prefix is informational only.
+
+**Do not change the prefix** on existing files — Alembic resolves files by their `revision`
+variable inside the file, not by filename. The prefix can be corrected if the wrong timestamp
+was used, but never needs to match the clock exactly.
+
 ## When to use --autogenerate vs manual
 
 | Scenario | Command |

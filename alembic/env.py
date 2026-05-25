@@ -9,8 +9,8 @@ from alembic import context
 from dotenv import load_dotenv
 from sqlalchemy import engine_from_config, pool
 
-import src.chassis.db_schema.infrastructure.models  # noqa: F401 — registers all ORM models
-from src.chassis.db_schema.infrastructure.base import Base
+import chassis.db_schema.infrastructure.models  # noqa: F401 — registers all ORM models
+from chassis.db_schema.infrastructure.base import Base
 
 
 load_dotenv()
@@ -19,11 +19,13 @@ _cfg = context.config
 if _cfg.config_file_name is not None:
     fileConfig(_cfg.config_file_name)
 
+_TAXPAYER = os.environ["TAXPAYER"]
 _DB_DSN = (
     f"postgresql+psycopg://{os.environ['DB_USER']}:{os.environ['DB_PASSWORD']}"
     f"@{os.environ['DB_HOST']}:{os.environ['DB_PORT']}/{os.environ['DB_NAME']}"
+    f"?options=-c%20search_path%3D{_TAXPAYER}"
 )
-_cfg.set_main_option("sqlalchemy.url", _DB_DSN)
+_cfg.set_main_option("sqlalchemy.url", _DB_DSN.replace("%", "%%"))
 
 target_metadata = Base.metadata
 

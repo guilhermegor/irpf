@@ -1,3 +1,6 @@
+-include .env
+export APP_NAME TAXPAYER DB_USER DB_PASSWORD DB_HOST DB_PORT DB_NAME BACKUP_STORE_PATH
+
 # -------------------
 # VIRTUAL ENVIRONMENT
 # -------------------
@@ -79,6 +82,47 @@ start:
 	@bash bin/start.sh
 
 # -------------------
+# DATABASE
+# -------------------
+.PHONY: db-setup-schema db-backup db-restore
+
+db-setup-schema:
+	@[ -n "$(TAXPAYER)" ] || \
+		{ echo "Error: TAXPAYER is not set — add it to .env"; exit 1; }
+	@docker compose exec -T \
+		-e PGPASSWORD="$(DB_PASSWORD)" \
+		postgresql \
+		psql -U "$(DB_USER)" -d "$(DB_NAME)" \
+		-c "CREATE SCHEMA IF NOT EXISTS $(TAXPAYER)"
+	@TAXPAYER=$(TAXPAYER) poetry run alembic upgrade head
+	@echo "Schema '$(TAXPAYER)' is ready."
+
+db-backup:
+	@[ -n "$(BACKUP_STORE_PATH)" ] || \
+		{ echo "Error: BACKUP_STORE_PATH is not set — add it to .env"; exit 1; }
+	@mkdir -p "$(BACKUP_STORE_PATH)/dbs_bkp/$(APP_NAME)"
+	@TIMESTAMP=$$(date +"%Y%m%d_%H%M%S"); \
+	DUMP_FILE="$(BACKUP_STORE_PATH)/dbs_bkp/$(APP_NAME)/$(DB_NAME)_$${TIMESTAMP}.dump"; \
+	docker compose exec -T \
+		-e PGPASSWORD="$(DB_PASSWORD)" \
+		postgresql \
+		pg_dump -U "$(DB_USER)" -Fc "$(DB_NAME)" > "$${DUMP_FILE}" && \
+	echo "Backup saved: $${DUMP_FILE}"
+
+db-restore:
+	@[ -n "$(DUMP)" ] || \
+		{ echo "Usage: make db-restore DUMP=<path/to/file.dump>"; exit 1; }
+	@[ -f "$(DUMP)" ] || \
+		{ echo "Dump file not found: $(DUMP)"; exit 1; }
+	@docker compose exec -T \
+		-e PGPASSWORD="$(DB_PASSWORD)" \
+		postgresql \
+		pg_restore -U "$(DB_USER)" -d "$(DB_NAME)" \
+			--clean --if-exists --no-owner -Fc \
+		< "$(DUMP)"
+	@echo "Restore complete from: $(DUMP)"
+
+# -------------------
 # DOCS
 # -------------------
 .PHONY: docs_server
@@ -120,6 +164,11 @@ help:
 	@echo ""
 	@echo "Run"
 	@echo "  start                Run src/main.py (auto-installs Poetry if missing)"
+	@echo ""
+	@echo "Database"
+	@echo "  db-setup-schema      Create TAXPAYER schema in DB and run Alembic migrations"
+	@echo "  db-backup            Dump DB to BACKUP_STORE_PATH/dbs_bkp/APP_NAME/ (set in .env)"
+	@echo "  db-restore DUMP=<f>  Restore a custom-format .dump file into DB"
 	@echo ""
 	@echo "Git Diff (offline sync — only present when scaffolded without GitHub)"
 	@echo "  git_diff_export              Export commits (DIFF_RANGE, default main..HEAD) to git_diffs/"

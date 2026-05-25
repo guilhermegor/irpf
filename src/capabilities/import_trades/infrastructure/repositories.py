@@ -55,6 +55,7 @@ class PostgresTradeImportRepository:
         str_dbname: str,
         str_user: str,
         str_password: str,
+        str_schema: str = "public",
     ) -> None:
         """Initialise with database credentials and data directory.
 
@@ -72,6 +73,8 @@ class PostgresTradeImportRepository:
             PostgreSQL username.
         str_password : str
             PostgreSQL password.
+        str_schema : str
+            PostgreSQL schema (taxpayer identifier, set via ``TAXPAYER`` env var).
         """
         self._path_data = Path(str_data_path).expanduser()
         self._str_host = str_host
@@ -79,15 +82,17 @@ class PostgresTradeImportRepository:
         self._str_dbname = str_dbname
         self._str_user = str_user
         self._str_password = str_password
+        self._str_schema = str_schema
 
     def _db(self) -> PostgreSQLDB:
-        """Create a new PostgreSQLDB connection from stored credentials."""
+        """Create a new PostgreSQLDB connection with schema-scoped search_path."""
         return PostgreSQLDB(
             dbname=self._str_dbname,
             user=self._str_user,
             password=self._str_password,
             host=self._str_host,
             port=self._int_port,
+            str_schema=self._str_schema,
         )
 
     def _fetch_excel(
