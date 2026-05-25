@@ -2,9 +2,10 @@ line-length = 99
 indent-width = 4
 target-version = "py39"
 exclude = [
-    # skeleton/template code — not part of the application under development
+    # skeleton/template code and framework-generated files
     "src/chassis",
     "src/capabilities/example_feature",
+    "alembic",
 
     # version control systems
     ".bzr",
