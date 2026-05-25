@@ -10,17 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # -------------------
 
 venv() {
-    PY_VERSION=$(cat "$SCRIPT_DIR/.python-version" 2>/dev/null || echo "3.11.12")
-    pyenv install "$PY_VERSION" -s
-    pyenv local "$PY_VERSION"
-    python -m pip install --upgrade pip
-    python -m pip install -r "$SCRIPT_DIR/requirements.txt"
-    poetry config virtualenvs.in-project true --local
-    poetry install
-    echo "Virtual environment created in ./.venv"
-    echo "Poetry project installed"
-    poetry run playwright install
-    echo "Playwright installed"
+    bash "$SCRIPT_DIR/bin/venv.sh"
 }
 
 update_venv() {
@@ -116,8 +106,7 @@ fi
 # -------------------
 
 docs_server() {
-    pip install --quiet mkdocs-material
-    mkdocs serve -a 0.0.0.0:8000 --livereload
+    poetry run mkdocs serve -a 0.0.0.0:8000 --livereload
 }
 
 # -------------------
