@@ -1,1 +1,222 @@
-# Input parameters — add keys consumed by use-cases here
+run_import_trades: true
+run_declaration_rv: true
+
+# Cross-platform paths — ~ expands to the user's home directory on Linux/macOS/Windows
+daily_infos_base_path: "~/daily_infos"
+
+import_trades:
+  data_path: "~/daily_infos"
+  bonificacoes_xpath: "//div[@class='card p-2 p-xs-3'][.//h3[@class][contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), \"bonifica\")]]//strong[@class='d-block lh-3 fs-3 fw-700']"
+
+declaration_rv:
+  base_year_offset: 1
+  decimal_places: 2
+  month_ref: 12
+  day_ref: 31
+  timeout_seconds: 7200
+  contributor:
+    full_name: "FILL_IN_YOUR_FULL_NAME"
+    cpf: "FILL_IN_YOUR_CPF"
+  assets_and_rights:
+    group:
+      key: "Group: "
+      value: "03 - Corporate Holdings"
+    code:
+      key: "Code: "
+      value: "01 - Stocks (including exchange-listed)"
+    location:
+      key: "Location (Country): "
+      value: "105 - Brazil"
+    cnpj:
+      key: "CNPJ: "
+    description:
+      key: "Description: "
+      value: "{} {} SHARES ACQUIRED AT AN AVERAGE PRICE OF BRL {}"
+    traded_on_exchange:
+      key: "Traded on Exchange? "
+      value: "Yes"
+    trading_code:
+      key: "Trading Code: "
+    year_end_balance:
+      key: "Balance on {} (BRL): "
+  exempt_non_taxable_income:
+    income_type:
+      key: "Income Type: "
+      value: "09 - Dividends received"
+    payer_cnpj:
+      key: "Payer CNPJ: "
+    payer_name:
+      key: "Payer Name: "
+    amount:
+      key: "Amount: "
+  taxable_income_jcp:
+    income_type:
+      key: "Income Type: "
+      value: "10 - Interest on equity (JCP)"
+    payer_cnpj:
+      key: "Payer CNPJ: "
+    payer_name:
+      key: "Payer Name: "
+    amount:
+      key: "Amount: "
+  taxable_income_monetary_update:
+    income_type:
+      key: "Income Type: "
+      value: "06 - Financial investment income"
+    payer_cnpj:
+      key: "Payer CNPJ: "
+    payer_name:
+      key: "Payer Name: "
+    amount:
+      key: "Amount: "
+  taxable_income_stock_lending:
+    income_type:
+      key: "Income Type: "
+      value: "06 - Financial investment income"
+    payer_cnpj:
+      key: "CNPJ: "
+      value: "09346601000125"
+    payer_name:
+      key: "Payer Name: "
+      value: "B3 S.A. - BRASIL. BOLSA. BALCAO"
+    amount:
+      key: "Amount: "
+  exempt_non_taxable_reimbursement:
+    income_type:
+      key: "Income Type: "
+      value: "99 - Other"
+    payer_cnpj:
+      key: "Payer CNPJ: "
+      value: "09346601000125"
+    payer_name:
+      key: "Payer Name: "
+      value: "B3 S.A. - BRASIL. BOLSA. BALCAO"
+    description:
+      key: "Description: "
+      value: "REIMBURSEMENT OF INCOME FROM LENT SHARES"
+    amount:
+      key: "Amount: "
+  exempt_non_taxable_fraction_auction:
+    income_type:
+      key: "Income Type: "
+      value: "99 - Other"
+    payer_cnpj:
+      key: "Payer CNPJ: "
+    payer_name:
+      key: "Payer Name: "
+    description:
+      key: "Description: "
+      value: "SALE OF FRACTIONAL SHARE AT AUCTION - {}"
+    amount:
+      key: "Amount: "
+  exempt_non_taxable_bonus_shares:
+    income_type:
+      key: "Income Type: "
+      value: "18 - Capitalisation of reserves / Bonus shares"
+    payer_cnpj:
+      key: "Payer CNPJ: "
+    payer_name:
+      key: "Payer Name: "
+    amount:
+      key: "Amount: "
+
+db:
+  database: "wealth_db"
+  col_year_base: "ano_base"
+  col_ticker: "ticker"
+  col_instrument: "instrumento"
+  col_cnpj: "cnpj"
+  col_company_name: "nome_compania"
+  col_position_side: "qtd_lado"
+  col_avg_buy_price: "preco_medio_compra"
+  col_financial_position: "posicao_fin"
+  col_movement_type: "movimentacao"
+  col_operation_value: "valor_operacao"
+  query_active_tickers_base_year: >
+    SELECT
+        DISTINCT(CODIGO_NEGOCIACAO) AS ticker
+      FROM b3_posicao_acoes
+      WHERE EXTRACT('Year' FROM data_pregao) = '{}'
+    UNION
+    SELECT
+        DISTINCT(SPLIT_PART(produto, ' - ', 1)) AS ticker
+      FROM b3_posicao_emprestimos
+      WHERE EXTRACT('Year' FROM data_pregao) = '{}';
+  query_bonus_shares: >
+    SELECT
+        ANO_BASE,
+        TICKER,
+        CNPJ,
+        NOME_COMPANIA,
+        SUM(VALOR_OPERACAO) AS valor_operacao
+      FROM B3_VW_BONIFICACOES
+        WHERE ANO_BASE = '{}'
+      GROUP BY 1, 2, 3, 4
+      ORDER BY TICKER, ANO_BASE DESC;
+  query_stock_lending_income: >
+    SELECT
+        SUM(VALOR_OPERACAO) AS valor_operacao
+      FROM B3_VW_PROVENTOS
+      WHERE
+        MOVIMENTACAO = 'Empréstimo'
+        AND ANO_BASE = '{}';
+  query_exempt_dividends: >
+    SELECT
+        TICKER,
+        CNPJ,
+        NOME_COMPANIA,
+        MOVIMENTACAO,
+        SUM(VALOR_OPERACAO) AS valor_operacao
+      FROM B3_VW_PROVENTOS
+      WHERE
+        ANO_BASE = '{}'
+        AND MOVIMENTACAO = 'Dividendo'
+      GROUP BY 1, 2, 3, 4;
+  query_taxable_jcp: >
+    SELECT
+        TICKER,
+        CNPJ,
+        NOME_COMPANIA,
+        MOVIMENTACAO,
+        SUM(VALOR_OPERACAO) AS valor_operacao
+      FROM B3_VW_PROVENTOS
+      WHERE
+        ANO_BASE = '{}'
+        AND MOVIMENTACAO = 'Juros Sobre Capital Próprio'
+      GROUP BY 1, 2, 3, 4;
+  query_monetary_update_income: >
+    SELECT
+        ANO_BASE,
+        TICKER,
+        CNPJ,
+        NOME_COMPANIA,
+        MOVIMENTACAO,
+        SUM(VALOR_OPERACAO) AS valor_operacao
+      FROM B3_VW_PROVENTOS
+      WHERE
+        MOVIMENTACAO = 'Rendimento'
+        AND ANO_BASE = '{}'
+      GROUP BY 1, 2, 3, 4, 5;
+  query_fraction_auction: >
+    SELECT
+        ANO_BASE,
+        TICKER,
+        CNPJ,
+        NOME_COMPANIA,
+        MOVIMENTACAO,
+        SUM(VALOR_OPERACAO) AS valor_operacao
+      FROM B3_VW_PROVENTOS
+      WHERE
+        MOVIMENTACAO = 'Leilão de Fração'
+        AND ANO_BASE = '{}'
+      GROUP BY 1, 2, 3, 4, 5
+      ORDER BY TICKER;
+  query_lending_reimbursement: >
+    SELECT
+      SUM(VALOR_OPERACAO) AS valor_operacao
+      FROM B3_VW_PROVENTOS
+      WHERE
+        MOVIMENTACAO = 'Reembolso'
+        AND ANO_BASE = '{}';
+  query_avg_price_portfolio: >
+    SELECT * FROM B3_VW_PM_PATR;
