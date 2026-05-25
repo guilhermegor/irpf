@@ -118,7 +118,6 @@ db-restore:
 .PHONY: docs_server
 
 docs_server:
-	@poetry install --with docs
 	@poetry run mkdocs serve -a 0.0.0.0:8000 --livereload
 
 # -------------------
