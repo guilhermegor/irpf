@@ -75,7 +75,7 @@ declaration_rv:
       value: "06 - Rendimentos de aplicações financeiras"
     payer_cnpj:
       key: "CNPJ da Fonte Pagadora: "
-      value: "09346601000125"
+      value: "09.346.601/0001-25"
     payer_name:
       key: "Nome da Fonte Pagadora: "
       value: "B3 S.A. - BRASIL. BOLSA. BALCAO"
@@ -87,7 +87,7 @@ declaration_rv:
       value: "99 - Outros"
     payer_cnpj:
       key: "CNPJ da Fonte Pagadora: "
-      value: "09346601000125"
+      value: "09.346.601/0001-25"
     payer_name:
       key: "Nome da Fonte Pagadora: "
       value: "B3 S.A. - BRASIL. BOLSA. BALCAO"

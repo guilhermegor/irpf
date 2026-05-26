@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+import re
 
 from sqlalchemy import func, select, union
 from sqlalchemy.orm import Session
@@ -20,6 +21,11 @@ from src.chassis.db_schema.infrastructure.models import (
     VwProventosModel,
 )
 
+
+# CNPJs for tickers delisted from B3 — absent from b3_posicao_acoes annual reports.
+_DELISTED_CNPJ: dict[str, str] = {
+    "CPFE3": "02.429.144/0001-93",  # CPFL Energia S.A.
+}
 
 _DIVIDENDO = "Dividendo"
 _DIVIDENDO_TRANSFERIDO = "Dividendo - Transferido"
@@ -74,7 +80,7 @@ class PostgresDeclarationRepository:
             list_positions.append(
                 PortfolioPosition(
                     str_ticker=str_ticker,
-                    str_cnpj=_clean_cnpj(row.cnpj or ""),
+                    str_cnpj=_resolve_cnpj(str_ticker, row.cnpj),
                     str_company_name=row.nome_compania or "",
                     int_quantity=int(row.qtd_lado or 0),
                     decimal_avg_buy_price=Decimal(str(row.preco_medio_compra or 0)),
@@ -112,7 +118,7 @@ class PostgresDeclarationRepository:
                 return None
             return TaxEvent(
                 str_ticker=str_ticker,
-                str_cnpj=_clean_cnpj(row.cnpj or ""),
+                str_cnpj=_resolve_cnpj(str_ticker, row.cnpj),
                 str_company_name=row.nome_compania or "",
                 str_event_type=row.movimentacao,
                 decimal_amount=Decimal(str(row.valor_operacao or 0)),
@@ -136,7 +142,7 @@ class PostgresDeclarationRepository:
                 return None
             return TaxEvent(
                 str_ticker=str_ticker,
-                str_cnpj=_clean_cnpj(row.cnpj or ""),
+                str_cnpj=_resolve_cnpj(str_ticker, row.cnpj),
                 str_company_name=row.nome_compania or "",
                 str_event_type="Bonificação em Ativos",
                 decimal_amount=Decimal(str(row.valor_operacao or 0)),
@@ -275,19 +281,47 @@ class PostgresDeclarationRepository:
 
 
 def _clean_cnpj(str_cnpj: str) -> str:
-    """Strip trailing '.0' from CNPJ strings produced by Excel float parsing.
+    """Normalise a raw CNPJ string to the formatted XX.XXX.XXX/XXXX-XX form.
 
     Parameters
     ----------
     str_cnpj : str
-        Raw CNPJ string, possibly with a trailing '.0' from float coercion.
+        Raw CNPJ — may be a bare integer string ("191"), a float string
+        ("191.0" from Excel numeric coercion), or already formatted.
 
     Returns
     -------
     str
-        CNPJ string with any trailing '.0' removed.
+        Formatted CNPJ, or ``""`` when the input is empty.
     """
-    return str_cnpj[:-2] if str_cnpj.endswith(".0") else str_cnpj
+    if str_cnpj.endswith(".0"):
+        str_cnpj = str_cnpj[:-2]
+    str_digits = re.sub(r"\D", "", str_cnpj)
+    if not str_digits:
+        return ""
+    str_padded = str_digits.zfill(14)
+    return (
+        f"{str_padded[:2]}.{str_padded[2:5]}.{str_padded[5:8]}"
+        f"/{str_padded[8:12]}-{str_padded[12:]}"
+    )
+
+
+def _resolve_cnpj(str_ticker: str, str_raw: str | None) -> str:
+    """Return a formatted CNPJ, falling back to the delisted-ticker registry.
+
+    Parameters
+    ----------
+    str_ticker : str
+        B3 ticker symbol (used for the fallback lookup).
+    str_raw : str | None
+        Raw CNPJ from the database, or ``None`` when absent.
+
+    Returns
+    -------
+    str
+        Formatted CNPJ string, or ``""`` when unknown.
+    """
+    return _clean_cnpj(str_raw or "") or _DELISTED_CNPJ.get(str_ticker, "")
 
 
 def _index_proventos(
