@@ -5115,6 +5115,24 @@ files = [
 typing-extensions = ">=4.14.1"
 
 [[package]]
+name = "pydocstyle"
+version = "6.3.0"
+description = "Python docstring style checker"
+optional = false
+python-versions = ">=3.6"
+groups = ["dev"]
+files = [
+    {file = "pydocstyle-6.3.0-py3-none-any.whl", hash = "sha256:118762d452a49d6b05e194ef344a55822987a462831ade91ec5c06fd2169d019"},
+    {file = "pydocstyle-6.3.0.tar.gz", hash = "sha256:7ce43f0c0ac87b07494eb9c0b462c0b73e6ff276807f204d6b53edc72b7e44e1"},
+]
+
+[package.dependencies]
+snowballstemmer = ">=2.2.0"
+
+[package.extras]
+toml = ["tomli (>=1.2.3) ; python_version < \"3.11\""]
+
+[[package]]
 name = "pyee"
 version = "13.0.1"
 description = "A rough port of Node.js's EventEmitter to Python with a few tricks of its own"
@@ -6527,6 +6545,18 @@ files = [
 ]
 
 [[package]]
+name = "snowballstemmer"
+version = "3.1.0"
+description = "This package provides 36 stemmers for 34 languages generated from Snowball algorithms."
+optional = false
+python-versions = ">=3.3"
+groups = ["dev"]
+files = [
+    {file = "snowballstemmer-3.1.0-py3-none-any.whl", hash = "sha256:17e6d1da216aa07db6dad37139ea70cf13c4b2e9a096f6e64a9648fc657d3154"},
+    {file = "snowballstemmer-3.1.0.tar.gz", hash = "sha256:fd9e34526b23340cd23ffea6c9f9760974ecc2c2ac9e1d81401443ccdb2a801f"},
+]
+
+[[package]]
 name = "sortedcontainers"
 version = "2.4.0"
 description = "Sorted Containers -- Sorted List, Sorted Dict, Sorted Set"
@@ -7756,4 +7786,4 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4.0"
-content-hash = "e3874d5661034730110ac91dc844b5ce754036e2394f16c2fdcf421994ed26d2"
+content-hash = "6d24b219f449503ffd793e340bd4e268d6a0a2d10e95a30f2de7fb8821b8653f"
