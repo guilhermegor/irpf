@@ -22,9 +22,14 @@ from src.chassis.db_schema.infrastructure.models import (
 )
 
 
-# CNPJs for tickers delisted from B3 — absent from b3_posicao_acoes annual reports.
+# CNPJs for tickers whose CNPJ is absent from b3_posicao_acoes (delisted or missing in B3 report).
 _DELISTED_CNPJ: dict[str, str] = {
-    "CPFE3": "02.429.144/0001-93",  # CPFL Energia S.A.
+    "CPFE3":  "02.429.144/0001-93",  # CPFL Energia S.A.
+    "BBSE3":  "17.344.597/0001-94",  # BB Seguridade Participações S.A.
+    "KLBN11": "89.637.490/0001-45",  # Klabin S.A.
+    "SANB11": "90.400.888/0001-42",  # Banco Santander (Brasil) S.A.
+    "SAPR11": "76.484.013/0001-45",  # Companhia de Saneamento do Paraná
+    "TAEE11": "07.859.971/0001-30",  # Transmissora Aliança de Energia Elétrica S.A.
 }
 
 _DIVIDENDO = "Dividendo"
