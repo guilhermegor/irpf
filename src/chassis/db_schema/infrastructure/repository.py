@@ -69,7 +69,7 @@ class SQLAlchemyRecordRepository(Repository):
 
         Returns
         -------
-        dict or None
+        Optional[dict]
             Record data if found, otherwise ``None``.
         """
         record = self.session.get(RecordModel, entity_id)

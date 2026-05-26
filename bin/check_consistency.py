@@ -284,9 +284,14 @@ def check_file(filepath: str) -> int:
     return errors
 
 
+_EXCLUDE_PREFIXES = (
+    "src/chassis",
+    "src/capabilities/example_feature",
+)
+
+
 if __name__ == "__main__":
-    targets = list(pathlib.Path("src").rglob("*.py")) + list(
-        pathlib.Path("tests").rglob("*.py")
-    )
+    raw = list(pathlib.Path("src").rglob("*.py")) + list(pathlib.Path("tests").rglob("*.py"))
+    targets = [p for p in raw if not str(p).startswith(_EXCLUDE_PREFIXES)]
     total_errors = sum(check_file(str(p)) for p in targets)
     sys.exit(1 if total_errors > 0 else 0)

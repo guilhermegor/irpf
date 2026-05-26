@@ -1,3 +1,6 @@
+-include .env
+export APP_NAME TAXPAYER DB_USER DB_PASSWORD DB_HOST DB_PORT DB_NAME BACKUP_STORE_PATH
+
 # -------------------
 # VIRTUAL ENVIRONMENT
 # -------------------
@@ -6,17 +9,7 @@
 init: venv precommit
 
 venv:
-	@PY_VERSION=$$(cat .python-version 2>/dev/null || echo "3.11.12"); \
-	pyenv install $$PY_VERSION -s; \
-	pyenv local $$PY_VERSION; \
-	python -m pip install --upgrade pip; \
-	python -m pip install -r requirements.txt; \
-	poetry config virtualenvs.in-project true --local; \
-	poetry install; \
-	echo "Virtual environment created in ./.venv"; \
-	echo "Poetry project installed"; \
-	poetry run playwright install; \
-	echo "Playwright installed"
+	@bash bin/venv.sh
 
 update_venv:
 	@poetry update
@@ -73,10 +66,43 @@ check_consistency:
 # -------------------
 # RUN
 # -------------------
-.PHONY: start
+.PHONY: run
 
-start:
-	@bash bin/start.sh
+run:
+	@bash bin/run.sh
+
+# -------------------
+# DATABASE
+# -------------------
+.PHONY: db_setup_schema db_backup db_restore
+
+db_setup_schema:
+	@bash bin/db_setup_schema.sh
+
+db_backup:
+	@[ -n "$(BACKUP_STORE_PATH)" ] || \
+		{ echo "Error: BACKUP_STORE_PATH is not set — add it to .env"; exit 1; }
+	@mkdir -p "$(BACKUP_STORE_PATH)/dbs_bkp/$(APP_NAME)"
+	@TIMESTAMP=$$(date +"%Y%m%d_%H%M%S"); \
+	DUMP_FILE="$(BACKUP_STORE_PATH)/dbs_bkp/$(APP_NAME)/$(DB_NAME)_$${TIMESTAMP}.dump"; \
+	docker compose exec -T \
+		-e PGPASSWORD="$(DB_PASSWORD)" \
+		postgresql \
+		pg_dump -U "$(DB_USER)" -Fc "$(DB_NAME)" > "$${DUMP_FILE}" && \
+	echo "Backup saved: $${DUMP_FILE}"
+
+db_restore:
+	@[ -n "$(DUMP)" ] || \
+		{ echo "Usage: make db_restore DUMP=<path/to/file.dump>"; exit 1; }
+	@[ -f "$(DUMP)" ] || \
+		{ echo "Dump file not found: $(DUMP)"; exit 1; }
+	@docker compose exec -T \
+		-e PGPASSWORD="$(DB_PASSWORD)" \
+		postgresql \
+		pg_restore -U "$(DB_USER)" -d "$(DB_NAME)" \
+			--clean --if-exists --no-owner -Fc \
+		< "$(DUMP)"
+	@echo "Restore complete from: $(DUMP)"
 
 # -------------------
 # DOCS
@@ -84,7 +110,6 @@ start:
 .PHONY: docs_server
 
 docs_server:
-	@poetry install --with docs
 	@poetry run mkdocs serve -a 0.0.0.0:8000 --livereload
 
 # -------------------
@@ -119,7 +144,12 @@ help:
 	@echo "  docs_server          Serve MkDocs site locally at http://0.0.0.0:8000"
 	@echo ""
 	@echo "Run"
-	@echo "  start                Run src/main.py (auto-installs Poetry if missing)"
+	@echo "  run                  Start services, apply migrations, run src/main.py"
+	@echo ""
+	@echo "Database"
+	@echo "  db_setup_schema      Create TAXPAYER schema in DB and run Alembic migrations"
+	@echo "  db_backup            Dump DB to BACKUP_STORE_PATH/dbs_bkp/APP_NAME/ (set in .env)"
+	@echo "  db_restore DUMP=<f>  Restore a custom-format .dump file into DB"
 	@echo ""
 	@echo "Git Diff (offline sync — only present when scaffolded without GitHub)"
 	@echo "  git_diff_export              Export commits (DIFF_RANGE, default main..HEAD) to git_diffs/"

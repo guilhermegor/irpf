@@ -1,26 +1,10 @@
 #!/bin/bash
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-MAGENTA='\033[0;35m'
-NC='\033[0m'
+set -euo pipefail
 
-print_status() {
-    local status="$1"
-    local message="$2"
-    case "$status" in
-        "success") echo -e "${GREEN}[✓]${NC} ${message}" ;;
-        "error") echo -e "${RED}[✗]${NC} ${message}" >&2 ;;
-        "warning") echo -e "${YELLOW}[!]${NC} ${message}" ;;
-        "info") echo -e "${BLUE}[i]${NC} ${message}" ;;
-        "config") echo -e "${CYAN}[→]${NC} ${message}" ;;
-        "debug") echo -e "${MAGENTA}[»]${NC} ${message}" ;;
-        *) echo -e "[ ] ${message}" ;;
-    esac
-}
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/common.sh"
+
 
 check_unix_filenames() {
     local has_errors=0

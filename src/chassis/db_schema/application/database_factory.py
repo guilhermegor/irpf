@@ -91,7 +91,7 @@ def build_database_session(echo: bool = False) -> DatabaseSession:
 
 	Parameters
 	----------
-	echo : bool, optional
+	echo : bool
 		If ``True``, log all SQL statements, by default ``False``.
 
 	Returns

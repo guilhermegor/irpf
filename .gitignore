@@ -40,3 +40,6 @@ htmlcov/
 .env.staging
 .env.prod
 .env.production
+
+# One-time developer scripts with hardcoded local paths — never commit
+scripts/

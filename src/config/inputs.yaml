@@ -1,1 +1,121 @@
-# Input parameters — add keys consumed by use-cases here
+run_import_trades: true
+run_declaration_rv: true
+
+# Cross-platform paths — ~ expands to the user's home directory on Linux/macOS/Windows
+daily_infos_base_path: "~/daily_infos"
+
+import_trades:
+  data_path: "~/daily_infos"
+  bonificacoes_xpath: "//div[@class='card p-2 p-xs-3'][.//h3[@class][contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), \"bonifica\")]]//strong[@class='d-block lh-3 fs-3 fw-700']"
+
+declaration_rv:
+  base_year_offset: 1
+  decimal_places: 2
+  month_ref: 12
+  day_ref: 31
+  timeout_seconds: 7200
+  contributor:
+    full_name_key: "Nome Completo Contribuinte: "
+    cpf_key: "CPF Contribuinte: "
+  assets_and_rights:
+    group:
+      key: "Grupo: "
+      value: "03 - Participações Societárias"
+    code:
+      key: "Código: "
+      value: "01 - Ações (inclusive as listadas em bolsa)"
+    location:
+      key: "Localização (País): "
+      value: "105 - Brasil"
+    cnpj:
+      key: "CNPJ: "
+    description:
+      key: "Discriminação: "
+      value: "{} {} QUANTIDADES, ADQUIRIDAS A UM PRECO MEDIO DE R$ {}"
+    traded_on_exchange:
+      key: "Negociados em Bolsa? "
+      value: "Sim"
+    trading_code:
+      key: "Código de Negociação: "
+    year_end_balance:
+      key: "Situação em {} (R$): "
+  exempt_non_taxable_income:
+    income_type:
+      key: "Tipo de Rendimento: "
+      value: "09 - Lucros e dividendos recebidos"
+    payer_cnpj:
+      key: "CNPJ da Fonte Pagadora: "
+    payer_name:
+      key: "Nome da Fonte Pagadora: "
+    amount:
+      key: "Valor: "
+  taxable_income_jcp:
+    income_type:
+      key: "Tipo de Rendimento: "
+      value: "10 - Juros sobre capital próprio"
+    payer_cnpj:
+      key: "CNPJ da Fonte Pagadora: "
+    payer_name:
+      key: "Nome da Fonte Pagadora: "
+    amount:
+      key: "Valor: "
+  taxable_income_monetary_update:
+    income_type:
+      key: "Tipo de Rendimento: "
+      value: "06 - Rendimentos de aplicações financeiras"
+    payer_cnpj:
+      key: "CNPJ da Fonte Pagadora: "
+    payer_name:
+      key: "Nome da Fonte Pagadora: "
+    amount:
+      key: "Valor: "
+  taxable_income_stock_lending:
+    income_type:
+      key: "Tipo de Rendimento: "
+      value: "06 - Rendimentos de aplicações financeiras"
+    payer_cnpj:
+      key: "CNPJ da Fonte Pagadora: "
+      value: "09.346.601/0001-25"
+    payer_name:
+      key: "Nome da Fonte Pagadora: "
+      value: "B3 S.A. - BRASIL. BOLSA. BALCAO"
+    amount:
+      key: "Valor: "
+  exempt_non_taxable_reimbursement:
+    income_type:
+      key: "Tipo de Rendimento: "
+      value: "99 - Outros"
+    payer_cnpj:
+      key: "CNPJ da Fonte Pagadora: "
+      value: "09.346.601/0001-25"
+    payer_name:
+      key: "Nome da Fonte Pagadora: "
+      value: "B3 S.A. - BRASIL. BOLSA. BALCAO"
+    description:
+      key: "Descrição: "
+      value: "REEMBOLSO DE PROVENTOS REFERENTES A ACOES ALUGADAS"
+    amount:
+      key: "Valor: "
+  exempt_non_taxable_fraction_auction:
+    income_type:
+      key: "Tipo de Rendimento: "
+      value: "99 - Outros"
+    payer_cnpj:
+      key: "CNPJ da Fonte Pagadora: "
+    payer_name:
+      key: "Nome da Fonte Pagadora: "
+    description:
+      key: "Descrição: "
+      value: "VENDA DE FRACAO DE ACAO EM LEILAO - {}"
+    amount:
+      key: "Valor: "
+  exempt_non_taxable_bonus_shares:
+    income_type:
+      key: "Tipo de Rendimento: "
+      value: "18 - Incorporação de reservas ao capital / Bonficações em ações"
+    payer_cnpj:
+      key: "CNPJ da Fonte Pagadora: "
+    payer_name:
+      key: "Nome da Fonte Pagadora: "
+    amount:
+      key: "Valor: "

@@ -10,17 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # -------------------
 
 venv() {
-    PY_VERSION=$(cat "$SCRIPT_DIR/.python-version" 2>/dev/null || echo "3.11.12")
-    pyenv install "$PY_VERSION" -s
-    pyenv local "$PY_VERSION"
-    python -m pip install --upgrade pip
-    python -m pip install -r "$SCRIPT_DIR/requirements.txt"
-    poetry config virtualenvs.in-project true --local
-    poetry install
-    echo "Virtual environment created in ./.venv"
-    echo "Poetry project installed"
-    poetry run playwright install
-    echo "Playwright installed"
+    bash "$SCRIPT_DIR/bin/venv.sh"
 }
 
 update_venv() {
@@ -97,8 +87,51 @@ check_consistency() {
 # RUN
 # -------------------
 
-start() {
-    bash "$SCRIPT_DIR/bin/start.sh"
+run() {
+    bash "$SCRIPT_DIR/bin/run.sh"
+}
+
+# -------------------
+# DATABASE
+# -------------------
+
+db_setup_schema() {
+    bash "$SCRIPT_DIR/bin/db_setup_schema.sh"
+}
+
+db_backup() {
+    if [[ -z "${BACKUP_STORE_PATH:-}" ]]; then
+        echo "Error: BACKUP_STORE_PATH is not set — add it to .env" >&2
+        exit 1
+    fi
+    mkdir -p "${BACKUP_STORE_PATH}/dbs_bkp/${APP_NAME}"
+    local timestamp
+    timestamp=$(date +"%Y%m%d_%H%M%S")
+    local dump_file="${BACKUP_STORE_PATH}/dbs_bkp/${APP_NAME}/${DB_NAME}_${timestamp}.dump"
+    docker compose exec -T \
+        -e PGPASSWORD="${DB_PASSWORD}" \
+        postgresql \
+        pg_dump -U "${DB_USER}" -Fc "${DB_NAME}" > "${dump_file}"
+    echo "Backup saved: ${dump_file}"
+}
+
+db_restore() {
+    local dump="${DUMP:-}"
+    if [[ -z "${dump}" ]]; then
+        echo "Usage: DUMP=<path/to/file.dump> ./tasks.sh db_restore" >&2
+        exit 1
+    fi
+    if [[ ! -f "${dump}" ]]; then
+        echo "Dump file not found: ${dump}" >&2
+        exit 1
+    fi
+    docker compose exec -T \
+        -e PGPASSWORD="${DB_PASSWORD}" \
+        postgresql \
+        pg_restore -U "${DB_USER}" -d "${DB_NAME}" \
+            --clean --if-exists --no-owner -Fc \
+        < "${dump}"
+    echo "Restore complete from: ${dump}"
 }
 
 # -------------------
@@ -116,8 +149,7 @@ fi
 # -------------------
 
 docs_server() {
-    pip install --quiet mkdocs-material
-    mkdocs serve -a 0.0.0.0:8000 --livereload
+    poetry run mkdocs serve -a 0.0.0.0:8000 --livereload
 }
 
 # -------------------
@@ -152,7 +184,12 @@ Docs
   docs_server          Serve MkDocs site locally at http://0.0.0.0:8000
 
 Run
-  start                Run src/main.py (auto-installs Poetry if missing)
+  run                  Start services, apply migrations, run src/main.py
+
+Database
+  db_setup_schema      Create TAXPAYER schema in DB and run Alembic migrations
+  db_backup            Dump DB to BACKUP_STORE_PATH/dbs_bkp/APP_NAME/ (set in .env)
+  DUMP=<f> db_restore  Restore a custom-format .dump file into DB
 
 Git Diff (offline sync — only present when scaffolded without GitHub)
   git_diff_export             Export commits (DIFF_RANGE, default main..HEAD) to git_diffs/
@@ -181,7 +218,10 @@ case "${1:-help}" in
     lint)                lint ;;
     check_consistency)   check_consistency ;;
     docs_server)         docs_server ;;
-    start)               start ;;
+    run)                 run ;;
+    db_setup_schema)     db_setup_schema ;;
+    db_backup)           db_backup ;;
+    db_restore)          db_restore ;;
     git_diff_export)     git_diff_export ;;
     git_diff_check)      git_diff_check "${2:-}" ;;
     git_diff_apply)      git_diff_apply "${2:-}" ;;

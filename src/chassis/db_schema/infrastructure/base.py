@@ -132,7 +132,7 @@ class Repository(metaclass=ABCTypeCheckerMeta):
 
         Returns
         -------
-        Any or None
+        Optional[Any]
             Entity if found, otherwise ``None``.
         """
 
