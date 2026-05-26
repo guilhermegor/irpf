@@ -74,9 +74,9 @@ run:
 # -------------------
 # DATABASE
 # -------------------
-.PHONY: db-setup-schema db-backup db-restore
+.PHONY: db_setup_schema db_backup db_restore
 
-db-setup-schema:
+db_setup_schema:
 	@[ -n "$(TAXPAYER)" ] || \
 		{ echo "Error: TAXPAYER is not set — add it to .env"; exit 1; }
 	@docker compose exec -T \
@@ -87,7 +87,7 @@ db-setup-schema:
 	@TAXPAYER=$(TAXPAYER) poetry run alembic upgrade head
 	@echo "Schema '$(TAXPAYER)' is ready."
 
-db-backup:
+db_backup:
 	@[ -n "$(BACKUP_STORE_PATH)" ] || \
 		{ echo "Error: BACKUP_STORE_PATH is not set — add it to .env"; exit 1; }
 	@mkdir -p "$(BACKUP_STORE_PATH)/dbs_bkp/$(APP_NAME)"
@@ -99,9 +99,9 @@ db-backup:
 		pg_dump -U "$(DB_USER)" -Fc "$(DB_NAME)" > "$${DUMP_FILE}" && \
 	echo "Backup saved: $${DUMP_FILE}"
 
-db-restore:
+db_restore:
 	@[ -n "$(DUMP)" ] || \
-		{ echo "Usage: make db-restore DUMP=<path/to/file.dump>"; exit 1; }
+		{ echo "Usage: make db_restore DUMP=<path/to/file.dump>"; exit 1; }
 	@[ -f "$(DUMP)" ] || \
 		{ echo "Dump file not found: $(DUMP)"; exit 1; }
 	@docker compose exec -T \
@@ -155,9 +155,9 @@ help:
 	@echo "  run                  Start services, apply migrations, run src/main.py"
 	@echo ""
 	@echo "Database"
-	@echo "  db-setup-schema      Create TAXPAYER schema in DB and run Alembic migrations"
-	@echo "  db-backup            Dump DB to BACKUP_STORE_PATH/dbs_bkp/APP_NAME/ (set in .env)"
-	@echo "  db-restore DUMP=<f>  Restore a custom-format .dump file into DB"
+	@echo "  db_setup_schema      Create TAXPAYER schema in DB and run Alembic migrations"
+	@echo "  db_backup            Dump DB to BACKUP_STORE_PATH/dbs_bkp/APP_NAME/ (set in .env)"
+	@echo "  db_restore DUMP=<f>  Restore a custom-format .dump file into DB"
 	@echo ""
 	@echo "Git Diff (offline sync — only present when scaffolded without GitHub)"
 	@echo "  git_diff_export              Export commits (DIFF_RANGE, default main..HEAD) to git_diffs/"

@@ -92,6 +92,59 @@ run() {
 }
 
 # -------------------
+# DATABASE
+# -------------------
+
+db_setup_schema() {
+    if [[ -z "${TAXPAYER:-}" ]]; then
+        echo "Error: TAXPAYER is not set — add it to .env" >&2
+        exit 1
+    fi
+    docker compose exec -T \
+        -e PGPASSWORD="${DB_PASSWORD}" \
+        postgresql \
+        psql -U "${DB_USER}" -d "${DB_NAME}" \
+        -c "CREATE SCHEMA IF NOT EXISTS ${TAXPAYER}"
+    TAXPAYER="${TAXPAYER}" poetry run alembic upgrade head
+    echo "Schema '${TAXPAYER}' is ready."
+}
+
+db_backup() {
+    if [[ -z "${BACKUP_STORE_PATH:-}" ]]; then
+        echo "Error: BACKUP_STORE_PATH is not set — add it to .env" >&2
+        exit 1
+    fi
+    mkdir -p "${BACKUP_STORE_PATH}/dbs_bkp/${APP_NAME}"
+    local timestamp
+    timestamp=$(date +"%Y%m%d_%H%M%S")
+    local dump_file="${BACKUP_STORE_PATH}/dbs_bkp/${APP_NAME}/${DB_NAME}_${timestamp}.dump"
+    docker compose exec -T \
+        -e PGPASSWORD="${DB_PASSWORD}" \
+        postgresql \
+        pg_dump -U "${DB_USER}" -Fc "${DB_NAME}" > "${dump_file}"
+    echo "Backup saved: ${dump_file}"
+}
+
+db_restore() {
+    local dump="${DUMP:-}"
+    if [[ -z "${dump}" ]]; then
+        echo "Usage: DUMP=<path/to/file.dump> ./tasks.sh db_restore" >&2
+        exit 1
+    fi
+    if [[ ! -f "${dump}" ]]; then
+        echo "Dump file not found: ${dump}" >&2
+        exit 1
+    fi
+    docker compose exec -T \
+        -e PGPASSWORD="${DB_PASSWORD}" \
+        postgresql \
+        pg_restore -U "${DB_USER}" -d "${DB_NAME}" \
+            --clean --if-exists --no-owner -Fc \
+        < "${dump}"
+    echo "Restore complete from: ${dump}"
+}
+
+# -------------------
 # GIT DIFF (offline sync — defined only when scaffolded without GitHub)
 # -------------------
 
@@ -143,6 +196,11 @@ Docs
 Run
   run                  Start services, apply migrations, run src/main.py
 
+Database
+  db_setup_schema      Create TAXPAYER schema in DB and run Alembic migrations
+  db_backup            Dump DB to BACKUP_STORE_PATH/dbs_bkp/APP_NAME/ (set in .env)
+  DUMP=<f> db_restore  Restore a custom-format .dump file into DB
+
 Git Diff (offline sync — only present when scaffolded without GitHub)
   git_diff_export             Export commits (DIFF_RANGE, default main..HEAD) to git_diffs/
   git_diff_check <path>       Check whether a .diff applies cleanly
@@ -171,6 +229,9 @@ case "${1:-help}" in
     check_consistency)   check_consistency ;;
     docs_server)         docs_server ;;
     run)                 run ;;
+    db_setup_schema)     db_setup_schema ;;
+    db_backup)           db_backup ;;
+    db_restore)          db_restore ;;
     git_diff_export)     git_diff_export ;;
     git_diff_check)      git_diff_check "${2:-}" ;;
     git_diff_apply)      git_diff_apply "${2:-}" ;;
