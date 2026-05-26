@@ -8,24 +8,32 @@ from logging.config import fileConfig
 from alembic import context
 from dotenv import load_dotenv
 from sqlalchemy import engine_from_config, pool
+from sqlalchemy.engine import URL
 
 import chassis.db_schema.infrastructure.models  # noqa: F401 — registers all ORM models
 from chassis.db_schema.infrastructure.base import Base
 
 
-load_dotenv()
+# override=True ensures Make's variable-expanded env values are replaced by the
+# raw values from .env (Make treats $ and # in .env as variable refs / comments).
+load_dotenv(override=True)
 
 _cfg = context.config
 if _cfg.config_file_name is not None:
     fileConfig(_cfg.config_file_name)
 
 _TAXPAYER = os.environ["TAXPAYER"]
-_DB_DSN = (
-    f"postgresql+psycopg://{os.environ['DB_USER']}:{os.environ['DB_PASSWORD']}"
-    f"@{os.environ['DB_HOST']}:{os.environ['DB_PORT']}/{os.environ['DB_NAME']}"
-    f"?options=-c%20search_path%3D{_TAXPAYER}"
+_DB_URL = URL.create(
+    "postgresql+psycopg",
+    username=os.environ["DB_USER"],
+    password=os.environ["DB_PASSWORD"],
+    host=os.environ["DB_HOST"],
+    port=int(os.environ["DB_PORT"]),
+    database=os.environ["DB_NAME"],
+    query={"options": f"-c search_path={_TAXPAYER}"},
 )
-_cfg.set_main_option("sqlalchemy.url", _DB_DSN.replace("%", "%%"))
+# ConfigParser uses % for interpolation — escape every literal % in the URL string.
+_cfg.set_main_option("sqlalchemy.url", _DB_URL.render_as_string(hide_password=False).replace("%", "%%"))
 
 target_metadata = Base.metadata
 
@@ -33,7 +41,7 @@ target_metadata = Base.metadata
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode (generate SQL script without DB connection)."""
     context.configure(
-        url=_DB_DSN,
+        url=_DB_URL,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},

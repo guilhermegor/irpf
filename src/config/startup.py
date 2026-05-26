@@ -14,7 +14,7 @@ from stpstone.utils.parsers.yaml import reading_yaml
 from stpstone.utils.webhooks.teams import WebhookTeams
 
 
-load_dotenv()
+load_dotenv(override=True)
 
 cls_dates_br = DatesBRAnbima()
 cls_create_log = CreateLog()
