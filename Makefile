@@ -77,15 +77,7 @@ run:
 .PHONY: db_setup_schema db_backup db_restore
 
 db_setup_schema:
-	@[ -n "$(TAXPAYER)" ] || \
-		{ echo "Error: TAXPAYER is not set — add it to .env"; exit 1; }
-	@docker compose exec -T \
-		-e PGPASSWORD="$(DB_PASSWORD)" \
-		postgresql \
-		psql -U "$(DB_USER)" -d "$(DB_NAME)" \
-		-c "CREATE SCHEMA IF NOT EXISTS $(TAXPAYER)"
-	@TAXPAYER=$(TAXPAYER) poetry run alembic upgrade head
-	@echo "Schema '$(TAXPAYER)' is ready."
+	@bash bin/db_setup_schema.sh
 
 db_backup:
 	@[ -n "$(BACKUP_STORE_PATH)" ] || \

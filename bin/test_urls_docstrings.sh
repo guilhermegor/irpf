@@ -1,26 +1,10 @@
 #!/bin/bash
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-MAGENTA='\033[0;35m'
-NC='\033[0m'
+set -euo pipefail
 
-print_status() {
-    local status="$1"
-    local message="$2"
-    case "$status" in
-        "success") echo -e "${GREEN}[✓]${NC} ${message}" ;;
-        "error") echo -e "${RED}[✗]${NC} ${message}" >&2 ;;
-        "warning") echo -e "${YELLOW}[!]${NC} ${message}" ;;
-        "info") echo -e "${BLUE}[i]${NC} ${message}" ;;
-        "config") echo -e "${CYAN}[→]${NC} ${message}" ;;
-        "debug") echo -e "${MAGENTA}[»]${NC} ${message}" ;;
-        *) echo -e "[ ] ${message}" ;;
-    esac
-}
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/common.sh"
+
 
 # Cache configuration
 CACHE_DIR=".url_check_cache"
@@ -28,7 +12,8 @@ CACHE_TTL=$((60 * 60 * 24 * 7)) # 1 week in seconds
 
 get_cache() {
     local url="$1"
-    local cache_file="${CACHE_DIR}/$(echo -n "$url" | md5sum | cut -d' ' -f1)"
+    local cache_file
+    cache_file="${CACHE_DIR}/$(echo -n "$url" | md5sum | cut -d' ' -f1)"
 
     if [[ -f "$cache_file" ]]; then
         local timestamp
@@ -47,7 +32,8 @@ get_cache() {
 set_cache() {
     local url="$1"
     local status="$2"
-    local cache_file="${CACHE_DIR}/$(echo -n "$url" | md5sum | cut -d' ' -f1)"
+    local cache_file
+    cache_file="${CACHE_DIR}/$(echo -n "$url" | md5sum | cut -d' ' -f1)"
     echo "$status" > "$cache_file"
 }
 

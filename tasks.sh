@@ -96,17 +96,7 @@ run() {
 # -------------------
 
 db_setup_schema() {
-    if [[ -z "${TAXPAYER:-}" ]]; then
-        echo "Error: TAXPAYER is not set — add it to .env" >&2
-        exit 1
-    fi
-    docker compose exec -T \
-        -e PGPASSWORD="${DB_PASSWORD}" \
-        postgresql \
-        psql -U "${DB_USER}" -d "${DB_NAME}" \
-        -c "CREATE SCHEMA IF NOT EXISTS ${TAXPAYER}"
-    TAXPAYER="${TAXPAYER}" poetry run alembic upgrade head
-    echo "Schema '${TAXPAYER}' is ready."
+    bash "$SCRIPT_DIR/bin/db_setup_schema.sh"
 }
 
 db_backup() {
